@@ -7,7 +7,7 @@ const BASE_AMOUNT = 20;
 const ORIGINAL_DAYS = 100;
 const TARGET_AMOUNT = 101000;
 
-const STORAGE_KEY = "savingChallengeData";
+const STORAGE_KEY = "savingChallengeData_v2";
 
 
 /* =========================================
@@ -45,13 +45,15 @@ const resetBtn =
 function createDefaultData() {
 
     return {
-        saved: 0,
+        version: 2,
 
-        carryOver: 0,
+        saved: 0,
 
         currentDay: 1,
 
-        completedDays: 0,
+        processedDays: 0,
+
+        shortfall: 0,
 
         days: []
     };
@@ -76,7 +78,24 @@ function loadData() {
 
     try {
 
-        return JSON.parse(savedData);
+        const parsed =
+            JSON.parse(savedData);
+
+        /*
+            Make sure required properties exist.
+        */
+
+        if (
+            !parsed ||
+            parsed.version !== 2 ||
+            !Array.isArray(parsed.days)
+        ) {
+
+            return createDefaultData();
+
+        }
+
+        return parsed;
 
     } catch (error) {
 
@@ -90,6 +109,13 @@ function loadData() {
     }
 
 }
+
+
+/* =========================================
+   GLOBAL DATA
+========================================= */
+
+let data = loadData();
 
 
 /* =========================================
@@ -107,59 +133,53 @@ function saveData() {
 
 
 /* =========================================
-   GLOBAL DATA
+   BASE TARGET
 ========================================= */
 
-let data = loadData();
+function getBaseTarget(dayNumber) {
 
+    /*
+        Day 1 = 20
+        Day 2 = 40
+        ...
+        Day 100 = 2000
 
-/* =========================================
-   CALCULATE BASE TARGET
-========================================= */
+        Extra days:
+        Day 101, 102... are NOT normal
+        challenge targets. They are used
+        only to clear the accumulated shortfall.
+    */
 
-function getBaseTarget(day) {
-
-    return BASE_AMOUNT * day;
+    return BASE_AMOUNT * dayNumber;
 
 }
 
 
 /* =========================================
-   GET CURRENT TARGET
+   CREATE NORMAL DAY
 ========================================= */
 
-function getCurrentTarget(day) {
-
-    return getBaseTarget(day) + data.carryOver;
-
-}
-
-
-/* =========================================
-   CREATE DAY
-========================================= */
-
-function createDay(dayNumber) {
-
-    const baseTarget =
-        getBaseTarget(dayNumber);
-
-    const target =
-        baseTarget + data.carryOver;
+function createNormalDay(dayNumber) {
 
     return {
 
         day: dayNumber,
 
-        baseTarget: baseTarget,
+        baseTarget:
+            getBaseTarget(dayNumber),
 
-        carryOver: data.carryOver,
-
-        target: target,
+        target:
+            getBaseTarget(dayNumber),
 
         saved: 0,
 
-        completed: false
+        remaining: 0,
+
+        completed: false,
+
+        processed: false,
+
+        extraDay: false
 
     };
 
@@ -167,26 +187,99 @@ function createDay(dayNumber) {
 
 
 /* =========================================
-   ENSURE CURRENT DAY EXISTS
+   CREATE EXTRA DAY
+========================================= */
+
+function createExtraDay(dayNumber) {
+
+    return {
+
+        day: dayNumber,
+
+        baseTarget: 0,
+
+        target: data.shortfall,
+
+        saved: 0,
+
+        remaining: data.shortfall,
+
+        completed: false,
+
+        processed: false,
+
+        extraDay: true
+
+    };
+
+}
+
+
+/* =========================================
+   ENSURE CURRENT DAY
 ========================================= */
 
 function ensureCurrentDay() {
 
-    const existingDay =
+    let existingDay =
         data.days.find(
             day => day.day === data.currentDay
         );
 
-    if (!existingDay) {
 
-        const newDay =
-            createDay(data.currentDay);
+    if (existingDay) {
 
-        data.days.push(newDay);
-
-        saveData();
+        return existingDay;
 
     }
+
+
+    let newDay;
+
+
+    /*
+        First 100 days
+    */
+
+    if (data.currentDay <= ORIGINAL_DAYS) {
+
+        newDay =
+            createNormalDay(
+                data.currentDay
+            );
+
+    }
+
+    /*
+        Extra days after Day 100
+    */
+
+    else {
+
+        /*
+            If there is no shortfall,
+            no extra day is required.
+        */
+
+        if (data.shortfall <= 0) {
+
+            return null;
+
+        }
+
+        newDay =
+            createExtraDay(
+                data.currentDay
+            );
+
+    }
+
+
+    data.days.push(newDay);
+
+    saveData();
+
+    return newDay;
 
 }
 
@@ -204,6 +297,20 @@ function formatMoney(amount) {
 
 
 /* =========================================
+   GET CURRENT DAY
+========================================= */
+
+function getCurrentDay() {
+
+    return data.days.find(
+        day =>
+            day.day === data.currentDay
+    );
+
+}
+
+
+/* =========================================
    RENDER TABLE
 ========================================= */
 
@@ -211,12 +318,17 @@ function renderTable() {
 
     savingTableBody.innerHTML = "";
 
+
     data.days.forEach(day => {
 
         const row =
             document.createElement("tr");
 
+
         let statusHTML = "";
+
+
+        /* ---------- COMPLETED ---------- */
 
         if (day.completed) {
 
@@ -226,7 +338,15 @@ function renderTable() {
                 </span>
             `;
 
-        } else if (day.saved > 0) {
+        }
+
+
+        /* ---------- PARTIAL ---------- */
+
+        else if (
+            day.processed &&
+            day.remaining > 0
+        ) {
 
             statusHTML = `
                 <span class="status partial">
@@ -234,7 +354,12 @@ function renderTable() {
                 </span>
             `;
 
-        } else {
+        }
+
+
+        /* ---------- PENDING ---------- */
+
+        else {
 
             statusHTML = `
                 <span class="status pending">
@@ -248,17 +373,28 @@ function renderTable() {
         row.innerHTML = `
 
             <td>
-                <strong>Day ${day.day}</strong>
-            </td>
-
-            <td>
-                ${formatMoney(day.baseTarget)}
+                <strong>
+                    Day ${day.day}
+                    ${
+                        day.extraDay
+                        ? '<small style="display:block;color:#7c3aed;">Extra Day</small>'
+                        : ''
+                    }
+                </strong>
             </td>
 
             <td>
                 ${
-                    day.carryOver > 0
-                    ? formatMoney(day.carryOver)
+                    day.extraDay
+                    ? "-"
+                    : formatMoney(day.baseTarget)
+                }
+            </td>
+
+            <td>
+                ${
+                    day.remaining > 0
+                    ? formatMoney(day.remaining)
                     : "-"
                 }
             </td>
@@ -294,13 +430,24 @@ function renderTable() {
 function updateStats() {
 
     const saved =
-        data.saved;
+        Math.min(
+            data.saved,
+            TARGET_AMOUNT
+        );
+
 
     const remaining =
         Math.max(
             TARGET_AMOUNT - saved,
             0
         );
+
+
+    /*
+        REAL PROGRESS
+
+        Rs.20 / Rs.101000 × 100
+    */
 
     const progress =
         Math.min(
@@ -312,23 +459,43 @@ function updateStats() {
     savedAmountEl.textContent =
         formatMoney(saved);
 
+
     remainingAmountEl.textContent =
         formatMoney(remaining);
+
 
     currentDayEl.textContent =
         `Day ${data.currentDay}`;
 
+
     progressTextEl.textContent =
         `${progress.toFixed(1)}% completed`;
+
 
     progressPercentEl.textContent =
         `${progress.toFixed(1)}%`;
 
+
+    /*
+        IMPORTANT:
+        Actually fill the progress bar.
+    */
+
     progressFillEl.style.width =
         `${progress}%`;
 
+
+    /*
+        Processed days
+    */
+
     completedDaysEl.textContent =
-        data.completedDays;
+        data.processedDays;
+
+
+    /*
+        Original 100 days + extra days
+    */
 
     totalDaysEl.textContent =
         Math.max(
@@ -345,29 +512,186 @@ function updateStats() {
 
 function checkCompletion() {
 
-    if (data.saved >= TARGET_AMOUNT) {
+    if (
+        data.saved >= TARGET_AMOUNT &&
+        data.shortfall <= 0
+    ) {
 
         completionSection.classList.remove(
             "hidden"
         );
 
-        progressFillEl.style.width = "100%";
+
+        progressFillEl.style.width =
+            "100%";
+
 
         progressPercentEl.textContent =
             "100%";
 
+
         progressTextEl.textContent =
             "Challenge completed! 🎉";
+
+
+        currentDayEl.textContent =
+            "Completed 🎉";
+
 
         return true;
 
     }
 
+
     completionSection.classList.add(
         "hidden"
     );
 
+
     return false;
+
+}
+
+
+/* =========================================
+   PROCESS NORMAL DAY
+========================================= */
+
+function processNormalDay(day, amount) {
+
+    day.saved = amount;
+
+    day.processed = true;
+
+    data.processedDays++;
+
+
+    /*
+        Calculate remaining amount
+    */
+
+    const remaining =
+        Math.max(
+            day.target - amount,
+            0
+        );
+
+
+    day.remaining =
+        remaining;
+
+
+    /*
+        Add shortfall to total shortfall
+    */
+
+    data.shortfall += remaining;
+
+
+    /*
+        If exact target reached
+    */
+
+    if (amount >= day.target) {
+
+        day.completed = true;
+
+        /*
+            If user paid extra,
+            subtract extra from shortfall.
+
+            Example:
+            Target = 40
+            Paid = 50
+            Extra = 10
+        */
+
+        const extra =
+            amount - day.target;
+
+
+        if (extra > 0) {
+
+            data.shortfall =
+                Math.max(
+                    data.shortfall - extra,
+                    0
+                );
+
+        }
+
+    }
+
+
+    /*
+        Move to next day
+    */
+
+    data.currentDay++;
+
+}
+
+
+/* =========================================
+   PROCESS EXTRA DAY
+========================================= */
+
+function processExtraDay(day, amount) {
+
+    day.saved = amount;
+
+    day.processed = true;
+
+    data.processedDays++;
+
+
+    /*
+        Extra day target is the
+        accumulated shortfall.
+    */
+
+    const remaining =
+        Math.max(
+            day.target - amount,
+            0
+        );
+
+
+    day.remaining =
+        remaining;
+
+
+    /*
+        Reduce shortfall by payment.
+    */
+
+    data.shortfall =
+        remaining;
+
+
+    /*
+        If fully paid
+    */
+
+    if (remaining <= 0) {
+
+        day.completed = true;
+
+        data.shortfall = 0;
+
+    }
+
+
+    /*
+        If still remaining,
+        create another extra day.
+    */
+
+    if (data.shortfall > 0) {
+
+        data.currentDay++;
+
+    }
 
 }
 
@@ -379,12 +703,17 @@ function checkCompletion() {
 function addSaving() {
 
     const amount =
-        Number(savingInput.value);
+        Number(
+            savingInput.value
+        );
 
 
     /* ---------- VALIDATION ---------- */
 
-    if (!amount || amount <= 0) {
+    if (
+        !Number.isFinite(amount) ||
+        amount <= 0
+    ) {
 
         showMessage(
             "Please enter a valid amount.",
@@ -395,6 +724,10 @@ function addSaving() {
 
     }
 
+
+    /*
+        Prevent saving more after completion.
+    */
 
     if (checkCompletion()) {
 
@@ -408,22 +741,31 @@ function addSaving() {
     }
 
 
-    /* ---------- CURRENT DAY ---------- */
+    /*
+        Get current day
+    */
 
-    ensureCurrentDay();
+    let day =
+        getCurrentDay();
 
 
-    const day =
-        data.days.find(
-            item =>
-                item.day === data.currentDay
-        );
+    /*
+        If day does not exist,
+        create it.
+    */
+
+    if (!day) {
+
+        day =
+            ensureCurrentDay();
+
+    }
 
 
     if (!day) {
 
         showMessage(
-            "Something went wrong. Please try again.",
+            "Something went wrong.",
             "error"
         );
 
@@ -432,12 +774,15 @@ function addSaving() {
     }
 
 
-    /* ---------- PREVENT DOUBLE PAYMENT ---------- */
+    /*
+        Do not allow the same day
+        to be processed twice.
+    */
 
-    if (day.completed) {
+    if (day.processed) {
 
         showMessage(
-            "This day is already completed.",
+            "This day has already been recorded.",
             "error"
         );
 
@@ -446,97 +791,147 @@ function addSaving() {
     }
 
 
-    /* ---------- SAVE AMOUNT ---------- */
-
-    day.saved += amount;
+    /* =========================================
+       ADD TO TOTAL SAVINGS
+    ========================================= */
 
     data.saved += amount;
 
 
-    /* =========================================
-       TARGET REACHED
-    ========================================= */
+    /*
+        Never allow saved to go
+        above the final target.
+    */
 
-    if (day.saved >= day.target) {
+    if (data.saved > TARGET_AMOUNT) {
 
-        const extra =
-            day.saved - day.target;
-
-
-        day.completed = true;
-
-        data.completedDays++;
-
-
-        /*
-            Extra money becomes credit
-            for the next day.
-        */
-
-        data.carryOver =
-            Math.max(extra, 0);
-
-
-        /*
-            Move to next day
-        */
-
-        data.currentDay++;
-
-
-        /*
-            Create next day automatically
-        */
-
-        if (data.saved < TARGET_AMOUNT) {
-
-            const nextDay =
-                createDay(data.currentDay);
-
-            data.days.push(nextDay);
-
-        }
-
-
-        showMessage(
-            `✅ Day ${day.day} completed!`,
-            "success"
-        );
-
-
-    } else {
-
-        /*
-            Day was not fully completed.
-
-            Calculate how much is still missing.
-        */
-
-        const remainingForDay =
-            day.target - day.saved;
-
-
-        data.carryOver =
-            remainingForDay;
-
-
-        /*
-            IMPORTANT:
-            Current day is NOT completed yet.
-            User can add more money to the same day.
-        */
-
-        showMessage(
-            `⚠️ ${formatMoney(remainingForDay)} remaining for Day ${day.day}.`,
-            "error"
-        );
+        data.saved =
+            TARGET_AMOUNT;
 
     }
 
 
+    /* =========================================
+       NORMAL DAY
+    ========================================= */
+
+    if (
+        !day.extraDay &&
+        day.day <= ORIGINAL_DAYS
+    ) {
+
+        processNormalDay(
+            day,
+            amount
+        );
+
+
+        if (day.completed) {
+
+            showMessage(
+                `✅ Day ${day.day} completed!`,
+                "success"
+            );
+
+        } else {
+
+            showMessage(
+                `⚠️ Day ${day.day} completed partially. ${formatMoney(day.remaining)} added to your remaining amount.`,
+                "error"
+            );
+
+        }
+
+    }
+
+
+    /* =========================================
+       EXTRA DAY
+    ========================================= */
+
+    else {
+
+        processExtraDay(
+            day,
+            amount
+        );
+
+
+        if (day.completed) {
+
+            showMessage(
+                `🎉 Extra Day ${day.day} completed!`,
+                "success"
+            );
+
+        } else {
+
+            showMessage(
+                `⚠️ ${formatMoney(day.remaining)} still remaining.`,
+                "error"
+            );
+
+        }
+
+    }
+
+
+    /*
+        Create next day automatically
+        if necessary.
+    */
+
+    if (
+        data.saved < TARGET_AMOUNT
+    ) {
+
+        /*
+            For days 1-100:
+            Always create next normal day.
+        */
+
+        if (
+            data.currentDay <= ORIGINAL_DAYS
+        ) {
+
+            ensureCurrentDay();
+
+        }
+
+        /*
+            After Day 100:
+            Create extra day only if
+            there is shortfall.
+        */
+
+        else if (
+            data.shortfall > 0
+        ) {
+
+            ensureCurrentDay();
+
+        }
+
+    }
+
+
+    /*
+        Clear input
+    */
+
     savingInput.value = "";
 
+
+    /*
+        Save
+    */
+
     saveData();
+
+
+    /*
+        Update UI
+    */
 
     renderTable();
 
@@ -548,16 +943,21 @@ function addSaving() {
 
 
 /* =========================================
-   MESSAGE
+   SHOW MESSAGE
 ========================================= */
 
-function showMessage(message, type) {
+function showMessage(
+    message,
+    type
+) {
 
     paymentMessageEl.textContent =
         message;
 
 
-    if (type === "success") {
+    if (
+        type === "success"
+    ) {
 
         paymentMessageEl.style.color =
             "#16a34a";
@@ -572,9 +972,10 @@ function showMessage(message, type) {
 
     setTimeout(() => {
 
-        paymentMessageEl.textContent = "";
+        paymentMessageEl.textContent =
+            "";
 
-    }, 4000);
+    }, 5000);
 
 }
 
@@ -585,11 +986,20 @@ function showMessage(message, type) {
 
 function resetChallenge() {
 
+    /*
+        Confirmation message
+    */
+
     const confirmed =
-        confirm(
-            "Are you sure you want to reset the entire saving challenge?"
+        window.confirm(
+            "⚠️ Are you sure?\n\n" +
+            "This will delete all your saved progress and restart the 100-Day Saving Challenge from Day 1."
         );
 
+
+    /*
+        User pressed Cancel
+    */
 
     if (!confirmed) {
 
@@ -598,16 +1008,33 @@ function resetChallenge() {
     }
 
 
+    /*
+        Delete saved data
+    */
+
     localStorage.removeItem(
         STORAGE_KEY
     );
 
 
+    /*
+        Create fresh challenge
+    */
+
     data =
         createDefaultData();
 
 
+    /*
+        Create Day 1
+    */
+
     ensureCurrentDay();
+
+
+    /*
+        Update page
+    */
 
     renderTable();
 
@@ -617,7 +1044,7 @@ function resetChallenge() {
 
 
     showMessage(
-        "Challenge has been reset.",
+        "🔄 Challenge has been reset successfully.",
         "success"
     );
 
@@ -638,7 +1065,9 @@ savingInput.addEventListener(
     "keydown",
     function(event) {
 
-        if (event.key === "Enter") {
+        if (
+            event.key === "Enter"
+        ) {
 
             addSaving();
 
@@ -660,7 +1089,16 @@ resetBtn.addEventListener(
 
 function initialize() {
 
+    /*
+        Make sure Day 1 exists.
+    */
+
     ensureCurrentDay();
+
+
+    /*
+        Render everything.
+    */
 
     renderTable();
 
