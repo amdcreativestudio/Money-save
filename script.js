@@ -46,15 +46,10 @@ function createDefaultData() {
 
     return {
         version: 2,
-
         saved: 0,
-
         currentDay: 1,
-
         processedDays: 0,
-
         shortfall: 0,
-
         days: []
     };
 
@@ -71,19 +66,13 @@ function loadData() {
         localStorage.getItem(STORAGE_KEY);
 
     if (!savedData) {
-
         return createDefaultData();
-
     }
 
     try {
 
         const parsed =
             JSON.parse(savedData);
-
-        /*
-            Make sure required properties exist.
-        */
 
         if (
             !parsed ||
@@ -139,15 +128,13 @@ function saveData() {
 function getBaseTarget(dayNumber) {
 
     /*
-        Day 1 = 20
-        Day 2 = 40
+        Day 1   = Rs.20
+        Day 2   = Rs.40
+        Day 3   = Rs.60
         ...
-        Day 100 = 2000
+        Day 100 = Rs.2,000
 
-        Extra days:
-        Day 101, 102... are NOT normal
-        challenge targets. They are used
-        only to clear the accumulated shortfall.
+        Total = Rs.101,000
     */
 
     return BASE_AMOUNT * dayNumber;
@@ -161,15 +148,16 @@ function getBaseTarget(dayNumber) {
 
 function createNormalDay(dayNumber) {
 
+    const target =
+        getBaseTarget(dayNumber);
+
     return {
 
         day: dayNumber,
 
-        baseTarget:
-            getBaseTarget(dayNumber),
+        baseTarget: target,
 
-        target:
-            getBaseTarget(dayNumber),
+        target: target,
 
         saved: 0,
 
@@ -221,50 +209,32 @@ function createExtraDay(dayNumber) {
 
 function ensureCurrentDay() {
 
-    let existingDay =
+    const existingDay =
         data.days.find(
             day => day.day === data.currentDay
         );
 
-
     if (existingDay) {
-
         return existingDay;
-
     }
 
 
     let newDay;
 
 
-    /*
-        First 100 days
-    */
-
-    if (data.currentDay <= ORIGINAL_DAYS) {
+    if (
+        data.currentDay <= ORIGINAL_DAYS
+    ) {
 
         newDay =
             createNormalDay(
                 data.currentDay
             );
 
-    }
-
-    /*
-        Extra days after Day 100
-    */
-
-    else {
-
-        /*
-            If there is no shortfall,
-            no extra day is required.
-        */
+    } else {
 
         if (data.shortfall <= 0) {
-
             return null;
-
         }
 
         newDay =
@@ -375,13 +345,25 @@ function renderTable() {
             <td>
                 <strong>
                     Day ${day.day}
+
                     ${
                         day.extraDay
-                        ? '<small style="display:block;color:#7c3aed;">Extra Day</small>'
-                        : ''
+                        ? `
+                            <small
+                                style="
+                                    display:block;
+                                    color:#7c3aed;
+                                "
+                            >
+                                Extra Day
+                            </small>
+                        `
+                        : ""
                     }
+
                 </strong>
             </td>
+
 
             <td>
                 ${
@@ -391,6 +373,7 @@ function renderTable() {
                 }
             </td>
 
+
             <td>
                 ${
                     day.remaining > 0
@@ -399,15 +382,18 @@ function renderTable() {
                 }
             </td>
 
+
             <td>
                 <strong>
                     ${formatMoney(day.target)}
                 </strong>
             </td>
 
+
             <td>
                 ${formatMoney(day.saved)}
             </td>
+
 
             <td>
                 ${statusHTML}
@@ -443,11 +429,9 @@ function updateStats() {
         );
 
 
-    /*
-        REAL PROGRESS
-
-        Rs.20 / Rs.101000 × 100
-    */
+    /* =====================================
+       REAL PROGRESS PERCENTAGE
+    ===================================== */
 
     const progress =
         Math.min(
@@ -455,6 +439,10 @@ function updateStats() {
             100
         );
 
+
+    /* =====================================
+       DISPLAY AMOUNTS
+    ===================================== */
 
     savedAmountEl.textContent =
         formatMoney(saved);
@@ -464,38 +452,64 @@ function updateStats() {
         formatMoney(remaining);
 
 
+    /* =====================================
+       CURRENT DAY
+    ===================================== */
+
     currentDayEl.textContent =
         `Day ${data.currentDay}`;
 
 
+    /* =====================================
+       REAL PERCENTAGE TEXT
+
+       Example:
+
+       Rs.20      = 0.02%
+       Rs.1,000   = 0.99%
+       Rs.10,000  = 9.90%
+       Rs.50,500  = 50.00%
+       Rs.101,000 = 100.00%
+    ===================================== */
+
     progressTextEl.textContent =
-        `${progress.toFixed(1)}% completed`;
+        `${progress.toFixed(2)}% completed`;
 
 
     progressPercentEl.textContent =
-        `${progress.toFixed(1)}%`;
+        `${progress.toFixed(2)}%`;
 
 
-    /*
-        IMPORTANT:
-        Actually fill the progress bar.
-    */
+    /* =====================================
+       PROGRESS BAR
 
-    progressFillEl.style.width =
-        `${progress}%`;
+       Actual percentage is used.
+
+       But when the amount is very small,
+       at least 4px of the bar is shown
+       so the color is visible.
+    ===================================== */
+
+    if (progress > 0) {
+
+        progressFillEl.style.width =
+            `max(4px, ${progress}%)`;
+
+    } else {
+
+        progressFillEl.style.width =
+            "0%";
+
+    }
 
 
-    /*
-        Processed days
-    */
+    /* =====================================
+       DAYS
+    ===================================== */
 
     completedDaysEl.textContent =
         data.processedDays;
 
-
-    /*
-        Original 100 days + extra days
-    */
 
     totalDaysEl.textContent =
         Math.max(
@@ -527,7 +541,7 @@ function checkCompletion() {
 
 
         progressPercentEl.textContent =
-            "100%";
+            "100.00%";
 
 
         progressTextEl.textContent =
@@ -557,18 +571,21 @@ function checkCompletion() {
    PROCESS NORMAL DAY
 ========================================= */
 
-function processNormalDay(day, amount) {
+function processNormalDay(
+    day,
+    amount
+) {
 
-    day.saved = amount;
+    day.saved =
+        amount;
 
-    day.processed = true;
+    day.processed =
+        true;
 
     data.processedDays++;
 
 
-    /*
-        Calculate remaining amount
-    */
+    /* Calculate daily shortage */
 
     const remaining =
         Math.max(
@@ -581,29 +598,28 @@ function processNormalDay(day, amount) {
         remaining;
 
 
-    /*
-        Add shortfall to total shortfall
-    */
+    /* Add shortage to total shortage */
 
-    data.shortfall += remaining;
+    data.shortfall +=
+        remaining;
 
 
-    /*
-        If exact target reached
-    */
+    /* =====================================
+       TARGET COMPLETED
+    ===================================== */
 
-    if (amount >= day.target) {
+    if (
+        amount >= day.target
+    ) {
 
-        day.completed = true;
+        day.completed =
+            true;
+
 
         /*
-            If user paid extra,
-            subtract extra from shortfall.
-
-            Example:
-            Target = 40
-            Paid = 50
-            Extra = 10
+            If user saved extra money,
+            use the extra to reduce
+            accumulated shortfall.
         */
 
         const extra =
@@ -623,9 +639,7 @@ function processNormalDay(day, amount) {
     }
 
 
-    /*
-        Move to next day
-    */
+    /* Move to next day */
 
     data.currentDay++;
 
@@ -636,19 +650,19 @@ function processNormalDay(day, amount) {
    PROCESS EXTRA DAY
 ========================================= */
 
-function processExtraDay(day, amount) {
+function processExtraDay(
+    day,
+    amount
+) {
 
-    day.saved = amount;
+    day.saved =
+        amount;
 
-    day.processed = true;
+    day.processed =
+        true;
 
     data.processedDays++;
 
-
-    /*
-        Extra day target is the
-        accumulated shortfall.
-    */
 
     const remaining =
         Math.max(
@@ -662,32 +676,38 @@ function processExtraDay(day, amount) {
 
 
     /*
-        Reduce shortfall by payment.
+        Update total shortage
     */
 
     data.shortfall =
         remaining;
 
 
-    /*
-        If fully paid
-    */
+    /* =====================================
+       EXTRA DAY COMPLETED
+    ===================================== */
 
-    if (remaining <= 0) {
+    if (
+        remaining <= 0
+    ) {
 
-        day.completed = true;
+        day.completed =
+            true;
 
-        data.shortfall = 0;
+        data.shortfall =
+            0;
 
     }
 
 
     /*
-        If still remaining,
-        create another extra day.
+        Still money remaining?
+        Create another extra day.
     */
 
-    if (data.shortfall > 0) {
+    if (
+        data.shortfall > 0
+    ) {
 
         data.currentDay++;
 
@@ -708,7 +728,9 @@ function addSaving() {
         );
 
 
-    /* ---------- VALIDATION ---------- */
+    /* =====================================
+       VALIDATION
+    ===================================== */
 
     if (
         !Number.isFinite(amount) ||
@@ -725,11 +747,13 @@ function addSaving() {
     }
 
 
-    /*
-        Prevent saving more after completion.
-    */
+    /* =====================================
+       CHECK COMPLETION
+    ===================================== */
 
-    if (checkCompletion()) {
+    if (
+        checkCompletion()
+    ) {
 
         showMessage(
             "🎉 Your challenge is already completed!",
@@ -741,18 +765,13 @@ function addSaving() {
     }
 
 
-    /*
-        Get current day
-    */
+    /* =====================================
+       GET CURRENT DAY
+    ===================================== */
 
     let day =
         getCurrentDay();
 
-
-    /*
-        If day does not exist,
-        create it.
-    */
 
     if (!day) {
 
@@ -774,12 +793,13 @@ function addSaving() {
     }
 
 
-    /*
-        Do not allow the same day
-        to be processed twice.
-    */
+    /* =====================================
+       PREVENT DOUBLE ENTRY
+    ===================================== */
 
-    if (day.processed) {
+    if (
+        day.processed
+    ) {
 
         showMessage(
             "This day has already been recorded.",
@@ -791,19 +811,22 @@ function addSaving() {
     }
 
 
-    /* =========================================
+    /* =====================================
        ADD TO TOTAL SAVINGS
-    ========================================= */
+    ===================================== */
 
-    data.saved += amount;
+    data.saved +=
+        amount;
 
 
     /*
-        Never allow saved to go
-        above the final target.
+        Never allow total to exceed
+        Rs.101,000.
     */
 
-    if (data.saved > TARGET_AMOUNT) {
+    if (
+        data.saved > TARGET_AMOUNT
+    ) {
 
         data.saved =
             TARGET_AMOUNT;
@@ -811,9 +834,9 @@ function addSaving() {
     }
 
 
-    /* =========================================
+    /* =====================================
        NORMAL DAY
-    ========================================= */
+    ===================================== */
 
     if (
         !day.extraDay &&
@@ -826,7 +849,9 @@ function addSaving() {
         );
 
 
-        if (day.completed) {
+        if (
+            day.completed
+        ) {
 
             showMessage(
                 `✅ Day ${day.day} completed!`,
@@ -836,7 +861,7 @@ function addSaving() {
         } else {
 
             showMessage(
-                `⚠️ Day ${day.day} completed partially. ${formatMoney(day.remaining)} added to your remaining amount.`,
+                `⚠️ Day ${day.day} partial. ${formatMoney(day.remaining)} remaining.`,
                 "error"
             );
 
@@ -845,9 +870,9 @@ function addSaving() {
     }
 
 
-    /* =========================================
+    /* =====================================
        EXTRA DAY
-    ========================================= */
+    ===================================== */
 
     else {
 
@@ -857,7 +882,9 @@ function addSaving() {
         );
 
 
-        if (day.completed) {
+        if (
+            day.completed
+        ) {
 
             showMessage(
                 `🎉 Extra Day ${day.day} completed!`,
@@ -876,18 +903,16 @@ function addSaving() {
     }
 
 
-    /*
-        Create next day automatically
-        if necessary.
-    */
+    /* =====================================
+       CREATE NEXT DAY
+    ===================================== */
 
     if (
         data.saved < TARGET_AMOUNT
     ) {
 
         /*
-            For days 1-100:
-            Always create next normal day.
+            Normal days 1-100
         */
 
         if (
@@ -898,10 +923,9 @@ function addSaving() {
 
         }
 
+
         /*
-            After Day 100:
-            Create extra day only if
-            there is shortfall.
+            Extra days
         */
 
         else if (
@@ -915,23 +939,18 @@ function addSaving() {
     }
 
 
-    /*
-        Clear input
-    */
+    /* Clear input */
 
-    savingInput.value = "";
+    savingInput.value =
+        "";
 
 
-    /*
-        Save
-    */
+    /* Save */
 
     saveData();
 
 
-    /*
-        Update UI
-    */
+    /* Update UI */
 
     renderTable();
 
@@ -970,12 +989,15 @@ function showMessage(
     }
 
 
-    setTimeout(() => {
+    setTimeout(
+        () => {
 
-        paymentMessageEl.textContent =
-            "";
+            paymentMessageEl.textContent =
+                "";
 
-    }, 5000);
+        },
+        5000
+    );
 
 }
 
@@ -986,10 +1008,6 @@ function showMessage(
 
 function resetChallenge() {
 
-    /*
-        Confirmation message
-    */
-
     const confirmed =
         window.confirm(
             "⚠️ Are you sure?\n\n" +
@@ -998,43 +1016,33 @@ function resetChallenge() {
 
 
     /*
-        User pressed Cancel
+        Cancel = nothing happens
     */
 
     if (!confirmed) {
-
         return;
-
     }
 
 
-    /*
-        Delete saved data
-    */
+    /* Delete saved progress */
 
     localStorage.removeItem(
         STORAGE_KEY
     );
 
 
-    /*
-        Create fresh challenge
-    */
+    /* New challenge */
 
     data =
         createDefaultData();
 
 
-    /*
-        Create Day 1
-    */
+    /* Create Day 1 */
 
     ensureCurrentDay();
 
 
-    /*
-        Update page
-    */
+    /* Refresh UI */
 
     renderTable();
 
@@ -1089,16 +1097,7 @@ resetBtn.addEventListener(
 
 function initialize() {
 
-    /*
-        Make sure Day 1 exists.
-    */
-
     ensureCurrentDay();
-
-
-    /*
-        Render everything.
-    */
 
     renderTable();
 
