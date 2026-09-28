@@ -1250,31 +1250,69 @@ function getCompletedDays() {
 }
 
 
-/* =========================================
-   UPDATE STATS
-========================================= */
-
 function updateStats() {
 
-    const progress =
-        getProgress();
-
+    const progress = getProgress();
 
     const remaining =
         getRemainingGoal();
-
 
     const completedDays =
         getCompletedDays().length;
 
 
-    /*
-       Planned days remaining.
+    /* =========================================
+       CURRENT DAY
+    ========================================= */
 
-       If carry-forward causes the challenge
-       to take longer than originally planned,
-       the remaining count never becomes negative.
+    const currentDay =
+        getCurrentDayRecord();
+
+
+    /*
+       Today's actual target
+       = normal daily amount
+       + previous remaining
     */
+
+    const normalDaily =
+        Math.min(
+            data.dailyAmount,
+            remaining
+        );
+
+
+    const carryForward =
+        Number(data.carryForward) || 0;
+
+
+    const todayTarget =
+        currentDay
+            ? Number(currentDay.planned) || 0
+            : getTodayTarget();
+
+
+    const savedToday =
+        currentDay
+            ? Number(currentDay.saved) || 0
+            : 0;
+
+
+    const todayRemaining =
+        currentDay
+            ? Math.max(
+                Number(currentDay.remaining) || 0,
+                0
+            )
+            : Math.max(
+                todayTarget - savedToday,
+                0
+            );
+
+
+    /* =========================================
+       DAYS
+    ========================================= */
 
     const daysLeft =
         Math.max(
@@ -1284,22 +1322,178 @@ function updateStats() {
         );
 
 
-    const currentDay =
-        getCurrentDayRecord();
+    /* =========================================
+       MAIN STATS
+    ========================================= */
+
+    $("targetAmount").textContent =
+        formatMoney(data.target);
 
 
-    const todayTarget =
-        currentDay
-            ? currentDay.planned
-            : getTodayTarget();
+    $("savedAmount").textContent =
+        formatMoney(data.saved);
 
 
-    const todayRemaining =
-        currentDay
-            ? currentDay.remaining
-            : todayTarget;
+    $("remainingAmount").textContent =
+        formatMoney(remaining);
 
 
+    $("currentDay").textContent =
+
+        data.saved >= data.target
+
+            ? "Completed 🎉"
+
+            : `Day ${data.currentDay}`;
+
+
+    /* =========================================
+       PROGRESS
+    ========================================= */
+
+    $("progressText").textContent =
+        `${progress.toFixed(2)}% completed`;
+
+
+    $("progressPercent").textContent =
+        `${progress.toFixed(2)}%`;
+
+
+    $("progressFill").style.width =
+        `${progress}%`;
+
+
+    /* =========================================
+       DAYS
+    ========================================= */
+
+    $("completedDays").textContent =
+        completedDays.toLocaleString("en-US");
+
+
+    $("totalDays").textContent =
+        data.totalDays.toLocaleString("en-US");
+
+
+    $("daysRemaining").textContent =
+        daysLeft.toLocaleString("en-US");
+
+
+    /* =========================================
+       TODAY MAIN DISPLAY
+    ========================================= */
+
+    $("todayAmount").textContent =
+
+        data.saved >= data.target
+
+            ? "Goal Reached 🎉"
+
+            : formatMoney(todayTarget);
+
+
+    $("todayDescription").textContent =
+
+        data.saved >= data.target
+
+            ? "You have completed this saving challenge."
+
+            : `Today's target: ${formatMoney(todayTarget)}. ` +
+              `Remaining: ${formatMoney(todayRemaining)}.`;
+
+
+    /* =========================================
+       ⭐ TODAY BREAKDOWN
+    ========================================= */
+
+    /*
+       1. NORMAL DAILY TARGET
+    */
+
+    $("normalDailyTarget").textContent =
+        formatMoney(normalDaily);
+
+
+    /*
+       2. PREVIOUS REMAINING
+    */
+
+    $("carryForwardAmount").textContent =
+        formatMoney(carryForward);
+
+
+    /*
+       3. TODAY'S TOTAL TARGET
+    */
+
+    $("todayTotalTarget").textContent =
+        formatMoney(todayTarget);
+
+
+    /*
+       4. SAVED TODAY
+    */
+
+    $("savedToday").textContent =
+        formatMoney(savedToday);
+
+
+    /*
+       5. TODAY'S REMAINING
+    */
+
+    $("todayRemaining").textContent =
+        formatMoney(todayRemaining);
+
+
+    /* =========================================
+       SUMMARY
+    ========================================= */
+
+    $("summarySaved").textContent =
+        formatMoney(data.saved);
+
+
+    $("summaryRemaining").textContent =
+        formatMoney(remaining);
+
+
+    $("summaryProgress").textContent =
+        `${progress.toFixed(2)}%`;
+
+
+    $("summaryDaily").textContent =
+        formatMoney(data.dailyAmount);
+
+
+    /* =========================================
+       TABLE STATS
+    ========================================= */
+
+    $("tableCompleted").textContent =
+        completedDays.toLocaleString("en-US");
+
+
+    $("tableTotal").textContent =
+        data.totalDays.toLocaleString("en-US");
+
+
+    /* =========================================
+       BUTTON
+    ========================================= */
+
+    addSavingBtn.disabled =
+        data.saved >= data.target;
+
+
+    addSavingBtn.textContent =
+
+        data.saved >= data.target
+
+            ? "✓ Goal Completed"
+
+            : "✓ Add Today's Saving";
+}
     /* -----------------------------------------
        MAIN STATS
     ----------------------------------------- */
