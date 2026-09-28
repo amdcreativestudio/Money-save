@@ -583,10 +583,7 @@ function getCurrentDayRecord() {
 
 function addTodaySaving() {
 
-    if (
-        !data.target ||
-        !data.dailyAmount
-    ) {
+    if (!data.target || !data.dailyAmount) {
 
         showFormMessage(
             paymentMessage,
@@ -596,6 +593,248 @@ function addTodaySaving() {
         return;
     }
 
+
+    /* Goal already completed */
+
+    if (data.saved >= data.target) {
+
+        showFormMessage(
+            paymentMessage,
+            "🎉 Your goal is already completed!",
+            "success"
+        );
+
+        return;
+    }
+
+
+    /* Get today's current record */
+
+    const day = ensureCurrentDay();
+
+    if (!day) {
+        return;
+    }
+
+
+    if (day.completed) {
+
+        showFormMessage(
+            paymentMessage,
+            "Today's saving has already been recorded.",
+            "error"
+        );
+
+        return;
+    }
+
+
+    /* =========================================
+       GET AMOUNT FROM THE INPUT BOX
+       NO POPUP
+    ========================================= */
+
+    const input = $("todaySavingInput");
+
+    const amount = Math.floor(
+        Number(input.value)
+    );
+
+
+    /* =========================================
+       VALIDATE
+    ========================================= */
+
+    if (
+        Number.isNaN(amount) ||
+        amount < 0
+    ) {
+
+        showFormMessage(
+            paymentMessage,
+            "Please enter a valid saving amount.",
+            "error"
+        );
+
+        return;
+    }
+
+
+    /* =========================================
+       TODAY'S TARGET
+    ========================================= */
+
+    const todayTarget =
+        getTodayTarget();
+
+
+    /* =========================================
+       PREVIOUS TOTAL
+       BEFORE TODAY'S SAVING
+    ========================================= */
+
+    const previousSaved =
+        data.saved;
+
+
+    /* =========================================
+       AMOUNT THAT CAN ACTUALLY BE ADDED
+       
+       Extra saving is allowed,
+       but total target cannot be exceeded.
+    ========================================= */
+
+    const amountToAdd =
+        Math.min(
+            amount,
+            data.target - previousSaved
+        );
+
+
+    /* =========================================
+       UPDATE TOTAL SAVED
+    ========================================= */
+
+    data.saved += amountToAdd;
+
+
+    /* =========================================
+       SAVE TODAY'S RECORD
+    ========================================= */
+
+    day.saved = amountToAdd;
+
+    day.date =
+        new Date().toISOString();
+
+
+    /* =========================================
+       CALCULATE TODAY'S REMAINING
+    ========================================= */
+
+    day.remaining =
+        Math.max(
+            todayTarget - amountToAdd,
+            0
+        );
+
+
+    /* =========================================
+       CARRY FORWARD
+    ========================================= */
+
+    if (day.remaining > 0) {
+
+        /*
+           Example:
+
+           Today's target = Rs.500
+           Saved = Rs.300
+
+           Carry = Rs.200
+        */
+
+        data.carryForward =
+            day.remaining;
+
+    } else {
+
+        /*
+           Today's target completed.
+        */
+
+        data.carryForward = 0;
+    }
+
+
+    /* =========================================
+       MARK TODAY COMPLETE
+       
+       The button represents today's action,
+       so today is recorded after pressing it.
+    ========================================= */
+
+    day.completed = true;
+
+
+    /* =========================================
+       MOVE TO NEXT DAY
+    ========================================= */
+
+    if (data.saved < data.target) {
+
+        data.currentDay += 1;
+
+        /*
+           Automatically create tomorrow's
+           target using carry-forward.
+        */
+
+        ensureCurrentDay();
+    }
+
+
+    /* =========================================
+       SAVE TO LOCAL STORAGE
+    ========================================= */
+
+    saveData();
+
+
+    /* =========================================
+       CLEAR INPUT
+    ========================================= */
+
+    input.value = "";
+
+
+    /* =========================================
+       UPDATE EVERYTHING
+    ========================================= */
+
+    render();
+
+
+    /* =========================================
+       MESSAGE
+    ========================================= */
+
+    if (data.saved >= data.target) {
+
+        showFormMessage(
+            paymentMessage,
+            "🎉 Goal completed! You reached your target.",
+            "success"
+        );
+
+        return;
+    }
+
+
+    if (day.remaining > 0) {
+
+        showFormMessage(
+            paymentMessage,
+
+            `✅ Day ${day.day} completed — ` +
+            `${formatMoney(amountToAdd)} saved. ` +
+            `${formatMoney(day.remaining)} carried forward to tomorrow.`,
+
+            "success"
+        );
+
+    } else {
+
+        showFormMessage(
+            paymentMessage,
+
+            `✅ Day ${day.day} completed — ` +
+            `${formatMoney(amountToAdd)} saved.`,
+
+            "success"
+        );
+    }
+}
 
     /* -----------------------------------------
        GOAL ALREADY COMPLETE
