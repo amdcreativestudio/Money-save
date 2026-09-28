@@ -1,132 +1,955 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
 <title>Custom Saving Challenge</title>
-<meta name="description" content="Create a custom saving goal and track your progress day by day.">
-<link rel="stylesheet" href="style.css">
+
+<meta
+    name="description"
+    content="Create a custom saving goal and track your progress day by day."
+>
+
+<link
+    rel="stylesheet"
+    href="style.css"
+>
+
 </head>
+
+
 <body>
+
+
+<!-- =========================================
+     HEADER
+========================================= -->
+
 <header class="header">
-  <div class="container nav">
-    <div class="logo">💰 <span>Saving Challenge</span></div>
-    <button id="resetBtn" class="reset-btn" type="button">Reset</button>
-  </div>
+
+    <div class="container nav">
+
+        <div class="logo">
+            💰
+            <span>Saving Challenge</span>
+        </div>
+
+        <button
+            id="resetBtn"
+            class="reset-btn"
+            type="button"
+        >
+            Reset
+        </button>
+
+    </div>
+
 </header>
 
+
+
+<!-- =========================================
+     MAIN
+========================================= -->
+
 <main class="container">
-  <section class="hero">
-    <div class="hero-icon">🎯</div>
-    <h1>Custom Saving Challenge</h1>
-    <p>Choose your own goal and daily saving amount.</p>
-  </section>
 
-  <section id="setupSection" class="setup-section">
-    <div class="section-heading">
-      <div>
-        <h2>⚙️ Create Your Challenge</h2>
-        <p>Set a target up to Rs.500,000 and the amount you can save each day.</p>
-      </div>
-    </div>
 
-    <div class="setup-grid">
-      <label class="field">
-        <span>Target Amount</span>
-        <select id="targetInput" aria-label="Target amount"></select>
-        <small>From Rs.5,000 to Rs.500,000 • Rs.5,000 steps</small>
-      </label>
+    <!-- =====================================
+         HERO
+    ====================================== -->
 
-      <label class="field">
-        <span>Daily Saving Amount</span>
-        <input id="dailyAmountInput" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 500">
-        <small>Enter the amount you can save every day.</small>
-      </label>
-    </div>
+    <section class="hero">
 
-    <div class="plan-preview">
-      <div><span>Target</span><strong id="previewTarget">Rs.5,000</strong></div>
-      <div><span>Daily</span><strong id="previewDaily">Rs.0</strong></div>
-      <div><span>Required Days</span><strong id="previewDays">—</strong></div>
-    </div>
+        <div class="hero-icon">
+            🎯
+        </div>
 
-    <button id="startBtn" class="primary-btn" type="button">Start Saving Challenge 🚀</button>
-    <p id="setupMessage" class="form-message"></p>
-  </section>
+        <h1>
+            Custom Saving Challenge
+        </h1>
 
-  <section id="challengeSection" class="hidden">
-    <section class="stats-grid">
-      <div class="stat-card"><span class="stat-icon">🎯</span><div><p>Target</p><h2 id="targetAmount">Rs.0</h2></div></div>
-      <div class="stat-card"><span class="stat-icon">💰</span><div><p>Saved</p><h2 id="savedAmount">Rs.0</h2></div></div>
-      <div class="stat-card"><span class="stat-icon">📉</span><div><p>Remaining</p><h2 id="remainingAmount">Rs.0</h2></div></div>
-      <div class="stat-card"><span class="stat-icon">📅</span><div><p>Current Day</p><h2 id="currentDay">Day 1</h2></div></div>
+        <p>
+            Choose your own goal and daily saving amount.
+        </p>
+
     </section>
 
-    <section class="progress-section">
-      <div class="progress-header">
-        <div><h2>Overall Progress</h2><p id="progressText">0% completed</p></div>
-        <strong id="progressPercent">0%</strong>
-      </div>
-      <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
-      <div class="progress-meta">
-        <span><b id="completedDays">0</b> days completed</span>
-        <span><b id="totalDays">0</b> total days</span>
-        <span><b id="daysRemaining">0</b> days left</span>
-      </div>
+
+
+    <!-- =====================================
+         SETUP SECTION
+    ====================================== -->
+
+    <section
+        id="setupSection"
+        class="setup-section"
+    >
+
+        <div class="section-heading">
+
+            <div>
+
+                <h2>
+                    ⚙️ Create Your Challenge
+                </h2>
+
+                <p>
+                    Set a target up to Rs.500,000
+                    and the amount you can save each day.
+                </p>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- SETUP FIELDS -->
+
+        <div class="setup-grid">
+
+
+            <!-- TARGET -->
+
+            <label class="field">
+
+                <span>
+                    Target Amount
+                </span>
+
+                <select
+                    id="targetInput"
+                    aria-label="Target amount"
+                ></select>
+
+                <small>
+                    From Rs.5,000 to Rs.500,000
+                    • Rs.5,000 steps
+                </small>
+
+            </label>
+
+
+
+            <!-- DAILY AMOUNT -->
+
+            <label class="field">
+
+                <span>
+                    Daily Saving Amount
+                </span>
+
+                <input
+                    id="dailyAmountInput"
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputmode="numeric"
+                    placeholder="e.g. 500"
+                >
+
+                <small>
+                    Enter the amount you can save every day.
+                </small>
+
+            </label>
+
+
+        </div>
+
+
+
+        <!-- PLAN PREVIEW -->
+
+        <div class="plan-preview">
+
+
+            <div>
+
+                <span>
+                    Target
+                </span>
+
+                <strong id="previewTarget">
+                    Rs.5,000
+                </strong>
+
+            </div>
+
+
+            <div>
+
+                <span>
+                    Daily
+                </span>
+
+                <strong id="previewDaily">
+                    Rs.0
+                </strong>
+
+            </div>
+
+
+            <div>
+
+                <span>
+                    Required Days
+                </span>
+
+                <strong id="previewDays">
+                    —
+                </strong>
+
+            </div>
+
+
+        </div>
+
+
+
+        <!-- START -->
+
+        <button
+            id="startBtn"
+            class="primary-btn"
+            type="button"
+        >
+            Start Saving Challenge 🚀
+        </button>
+
+
+        <p
+            id="setupMessage"
+            class="form-message"
+        ></p>
+
+
     </section>
 
-    <section class="today-section">
-      <div>
-        <span class="eyebrow">TODAY'S SAVING</span>
-        <h2 id="todayAmount">Rs.0</h2>
-        <p id="todayDescription">Save today's amount and mark it as completed.</p>
-      </div>
-      <button id="addSavingBtn" class="primary-btn" type="button">✓ I Saved Today's Amount</button>
-      <p id="paymentMessage" class="form-message"></p>
+
+
+    <!-- =====================================
+         CHALLENGE SECTION
+    ====================================== -->
+
+    <section
+        id="challengeSection"
+        class="hidden"
+    >
+
+
+
+        <!-- =================================
+             MAIN STATS
+        ================================== -->
+
+        <section class="stats-grid">
+
+
+            <!-- TARGET -->
+
+            <div class="stat-card">
+
+                <span class="stat-icon">
+                    🎯
+                </span>
+
+                <div>
+
+                    <p>
+                        Target
+                    </p>
+
+                    <h2 id="targetAmount">
+                        Rs.0
+                    </h2>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- SAVED -->
+
+            <div class="stat-card">
+
+                <span class="stat-icon">
+                    💰
+                </span>
+
+                <div>
+
+                    <p>
+                        Saved
+                    </p>
+
+                    <h2 id="savedAmount">
+                        Rs.0
+                    </h2>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- REMAINING -->
+
+            <div class="stat-card">
+
+                <span class="stat-icon">
+                    📉
+                </span>
+
+                <div>
+
+                    <p>
+                        Remaining
+                    </p>
+
+                    <h2 id="remainingAmount">
+                        Rs.0
+                    </h2>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- CURRENT DAY -->
+
+            <div class="stat-card">
+
+                <span class="stat-icon">
+                    📅
+                </span>
+
+                <div>
+
+                    <p>
+                        Current Day
+                    </p>
+
+                    <h2 id="currentDay">
+                        Day 1
+                    </h2>
+
+                </div>
+
+            </div>
+
+
+        </section>
+
+
+
+        <!-- =================================
+             PROGRESS
+        ================================== -->
+
+        <section class="progress-section">
+
+
+            <div class="progress-header">
+
+                <div>
+
+                    <h2>
+                        Overall Progress
+                    </h2>
+
+                    <p id="progressText">
+                        0% completed
+                    </p>
+
+                </div>
+
+
+                <strong id="progressPercent">
+                    0%
+                </strong>
+
+            </div>
+
+
+
+            <div class="progress-bar">
+
+                <div
+                    id="progressFill"
+                    class="progress-fill"
+                    style="width: 0%;"
+                ></div>
+
+            </div>
+
+
+
+            <div class="progress-meta">
+
+                <span>
+                    <b id="completedDays">0</b>
+                    days completed
+                </span>
+
+                <span>
+                    <b id="totalDays">0</b>
+                    total days
+                </span>
+
+                <span>
+                    <b id="daysRemaining">0</b>
+                    days left
+                </span>
+
+            </div>
+
+
+        </section>
+
+
+
+        <!-- =================================
+             TODAY'S SAVING
+        ================================== -->
+
+        <section class="today-section">
+
+
+            <div class="today-main">
+
+
+                <span class="eyebrow">
+                    TODAY'S SAVING
+                </span>
+
+
+                <h2 id="todayAmount">
+                    Rs.0
+                </h2>
+
+
+                <p id="todayDescription">
+                    Save today's amount and
+                    mark it as completed.
+                </p>
+
+
+            </div>
+
+
+
+            <!-- =================================
+                 TODAY'S BREAKDOWN
+            ================================== -->
+
+            <div class="today-breakdown">
+
+
+                <!-- NORMAL DAILY -->
+
+                <div class="today-item">
+
+                    <span>
+                        Normal Daily Target
+                    </span>
+
+                    <strong id="normalDailyTarget">
+                        Rs.0
+                    </strong>
+
+                </div>
+
+
+
+                <!-- CARRY FORWARD -->
+
+                <div class="today-item carry-item">
+
+                    <span>
+                        Previous Remaining
+                    </span>
+
+                    <strong id="carryForwardAmount">
+                        Rs.0
+                    </strong>
+
+                </div>
+
+
+
+                <!-- TOTAL TARGET -->
+
+                <div class="today-item total-item">
+
+                    <span>
+                        Today's Total Target
+                    </span>
+
+                    <strong id="todayTotalTarget">
+                        Rs.0
+                    </strong>
+
+                </div>
+
+
+
+                <!-- SAVED -->
+
+                <div class="today-item">
+
+                    <span>
+                        Saved Today
+                    </span>
+
+                    <strong id="savedToday">
+                        Rs.0
+                    </strong>
+
+                </div>
+
+
+
+                <!-- REMAINING -->
+
+                <div class="today-item remaining-item">
+
+                    <span>
+                        Today's Remaining
+                    </span>
+
+                    <strong id="todayRemaining">
+                        Rs.0
+                    </strong>
+
+                </div>
+
+
+            </div>
+
+
+
+            <!-- =================================
+                 SAVING INPUT
+            ================================== -->
+
+            <div class="today-save-box">
+
+
+                <label
+                    for="todaySavingInput"
+                >
+                    How much did you save today?
+                </label>
+
+
+                <div class="today-input-row">
+
+
+                    <input
+                        id="todaySavingInput"
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputmode="numeric"
+                        placeholder="Enter amount"
+                    >
+
+
+                    <button
+                        id="addSavingBtn"
+                        class="primary-btn"
+                        type="button"
+                    >
+                        ✓ Add Saving
+                    </button>
+
+
+                </div>
+
+
+                <small>
+                    You can save less, the full amount,
+                    or even more than today's target.
+                </small>
+
+
+            </div>
+
+
+
+            <!-- MESSAGE -->
+
+            <p
+                id="paymentMessage"
+                class="form-message"
+            ></p>
+
+
+        </section>
+
+
+
+        <!-- =================================
+             CHART
+        ================================== -->
+
+        <section class="chart-section">
+
+
+            <div class="section-heading">
+
+                <div>
+
+                    <h2>
+                        📊 Saving Chart
+                    </h2>
+
+                    <p>
+                        Your daily savings are
+                        added automatically.
+                    </p>
+
+                </div>
+
+
+                <span
+                    id="chartRange"
+                    class="pill"
+                >
+                    Last 30 days
+                </span>
+
+            </div>
+
+
+
+            <div class="chart-wrap">
+
+                <canvas
+                    id="savingChart"
+                    height="280"
+                ></canvas>
+
+            </div>
+
+
+        </section>
+
+
+
+        <!-- =================================
+             SUMMARY
+        ================================== -->
+
+        <section class="summary-grid">
+
+
+            <!-- TOTAL SAVED -->
+
+            <div class="summary-card">
+
+                <span>
+                    💵
+                </span>
+
+                <div>
+
+                    <p>
+                        Total Saved
+                    </p>
+
+                    <strong id="summarySaved">
+                        Rs.0
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- STILL NEEDED -->
+
+            <div class="summary-card">
+
+                <span>
+                    🎯
+                </span>
+
+                <div>
+
+                    <p>
+                        Still Needed
+                    </p>
+
+                    <strong id="summaryRemaining">
+                        Rs.0
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- PROGRESS -->
+
+            <div class="summary-card">
+
+                <span>
+                    📈
+                </span>
+
+                <div>
+
+                    <p>
+                        Progress
+                    </p>
+
+                    <strong id="summaryProgress">
+                        0%
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- DAILY -->
+
+            <div class="summary-card">
+
+                <span>
+                    🔥
+                </span>
+
+                <div>
+
+                    <p>
+                        Daily Saving
+                    </p>
+
+                    <strong id="summaryDaily">
+                        Rs.0
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+        </section>
+
+
+
+        <!-- =================================
+             SAVING SCHEDULE
+        ================================== -->
+
+        <section class="table-section">
+
+
+            <div class="section-title">
+
+
+                <div>
+
+                    <h2>
+                        📋 Saving Schedule
+                    </h2>
+
+                    <p>
+                        Completed days and
+                        upcoming saving targets.
+                    </p>
+
+                </div>
+
+
+                <div class="days-info">
+
+                    <span id="tableCompleted">
+                        0
+                    </span>
+
+                    /
+
+                    <span id="tableTotal">
+                        0
+                    </span>
+
+                    Days
+
+                </div>
+
+
+            </div>
+
+
+
+            <div class="table-wrapper">
+
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>
+                                Day
+                            </th>
+
+                            <th>
+                                Planned
+                            </th>
+
+                            <th>
+                                Saved
+                            </th>
+
+                            <th>
+                                Remaining
+                            </th>
+
+                            <th>
+                                Status
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody
+                        id="savingTableBody"
+                    ></tbody>
+
+
+                </table>
+
+
+            </div>
+
+
+
+            <p
+                id="tableNote"
+                class="table-note"
+            ></p>
+
+
+        </section>
+
+
+
+        <!-- =================================
+             COMPLETION
+        ================================== -->
+
+        <section
+            id="completionSection"
+            class="completion-section hidden"
+        >
+
+
+            <div class="completion-icon">
+                🎉
+            </div>
+
+
+            <h2>
+                Goal Completed!
+            </h2>
+
+
+            <p>
+                You reached
+                <strong id="completedTargetText">
+                    Rs.0
+                </strong>.
+                Great work!
+            </p>
+
+
+            <div class="completion-details">
+
+                <div>
+
+                    <span>
+                        Target
+                    </span>
+
+                    <strong id="completionTarget">
+                        Rs.0
+                    </strong>
+
+                </div>
+
+
+                <div>
+
+                    <span>
+                        Total Saved
+                    </span>
+
+                    <strong id="completionSaved">
+                        Rs.0
+                    </strong>
+
+                </div>
+
+
+            </div>
+
+
+        </section>
+
+
     </section>
 
-    <section class="chart-section">
-      <div class="section-heading">
-        <div><h2>📊 Saving Chart</h2><p>Your daily savings are added automatically.</p></div>
-        <span id="chartRange" class="pill">Last 30 days</span>
-      </div>
-      <div class="chart-wrap"><canvas id="savingChart" height="280"></canvas></div>
-    </section>
 
-    <section class="summary-grid">
-      <div class="summary-card"><span>💵</span><div><p>Total Saved</p><strong id="summarySaved">Rs.0</strong></div></div>
-      <div class="summary-card"><span>🎯</span><div><p>Still Needed</p><strong id="summaryRemaining">Rs.0</strong></div></div>
-      <div class="summary-card"><span>📈</span><div><p>Progress</p><strong id="summaryProgress">0%</strong></div></div>
-      <div class="summary-card"><span>🔥</span><div><p>Daily Saving</p><strong id="summaryDaily">Rs.0</strong></div></div>
-    </section>
-
-    <section class="table-section">
-      <div class="section-title">
-        <div><h2>📋 Saving Schedule</h2><p>Completed days and the next days in your plan.</p></div>
-        <div class="days-info"><span id="tableCompleted">0</span> / <span id="tableTotal">0</span> Days</div>
-      </div>
-      <div class="table-wrapper">
-        <table>
-          <thead><tr><th>Day</th><th>Planned</th><th>Saved</th><th>Status</th></tr></thead>
-          <tbody id="savingTableBody"></tbody>
-        </table>
-      </div>
-      <p id="tableNote" class="table-note"></p>
-    </section>
-
-    <section id="completionSection" class="completion-section hidden">
-      <div class="completion-icon">🎉</div>
-      <h2>Goal Completed!</h2>
-      <p>You reached <strong id="completedTargetText">Rs.0</strong>. Great work!</p>
-    </section>
-  </section>
 </main>
 
+
+
+<!-- =========================================
+     FOOTER
+========================================= -->
+
 <footer class="footer">
-  <p>💰 Saving Challenge</p>
-  <p>Save smart. Stay consistent. 🎯</p>
+
+    <p>
+        💰 Saving Challenge
+    </p>
+
+    <p>
+        Save smart. Stay consistent. 🎯
+    </p>
+
 </footer>
 
+
+
+<!-- =========================================
+     JAVASCRIPT
+========================================= -->
+
 <script src="script.js"></script>
+
+
 </body>
+
 </html>
