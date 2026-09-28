@@ -1,6 +1,8 @@
 /* =========================================
    CUSTOM SAVING CHALLENGE
-   FULL UPDATED SCRIPT
+   COMPLETE SCRIPT
+   CUSTOM TARGET
+   CUSTOM DAILY AMOUNT
    CARRY-FORWARD SYSTEM
 ========================================= */
 
@@ -13,36 +15,62 @@ const MIN_TARGET = 5000;
 const MAX_TARGET = 500000;
 const TARGET_STEP = 5000;
 
-const STORAGE_KEY = "customSavingChallenge_v2";
+const STORAGE_KEY =
+    "customSavingChallenge_v3";
 
 
 /* =========================================
-   DOM ELEMENTS
+   DOM
 ========================================= */
 
-const $ = (id) => document.getElementById(id);
+const $ =
+    (id) =>
+        document.getElementById(id);
 
-const targetInput = $("targetInput");
-const dailyAmountInput = $("dailyAmountInput");
-const startBtn = $("startBtn");
-const resetBtn = $("resetBtn");
 
-const setupSection = $("setupSection");
-const challengeSection = $("challengeSection");
+const targetInput =
+    $("targetInput");
 
-const setupMessage = $("setupMessage");
-const paymentMessage = $("paymentMessage");
+const dailyAmountInput =
+    $("dailyAmountInput");
 
-const addSavingBtn = $("addSavingBtn");
-const savingTableBody = $("savingTableBody");
-const chartCanvas = $("savingChart");
+const startBtn =
+    $("startBtn");
+
+const resetBtn =
+    $("resetBtn");
+
+
+const setupSection =
+    $("setupSection");
+
+const challengeSection =
+    $("challengeSection");
+
+
+const setupMessage =
+    $("setupMessage");
+
+const paymentMessage =
+    $("paymentMessage");
+
+
+const addSavingBtn =
+    $("addSavingBtn");
+
+const savingTableBody =
+    $("savingTableBody");
+
+const chartCanvas =
+    $("savingChart");
 
 
 /* =========================================
    DATA
 ========================================= */
 
-let data = loadData();
+let data =
+    loadData();
 
 
 /* =========================================
@@ -53,8 +81,9 @@ function formatMoney(amount) {
 
     return (
         "Rs." +
-        Math.round(Number(amount) || 0)
-            .toLocaleString("en-US")
+        Math.round(
+            Number(amount) || 0
+        ).toLocaleString("en-US")
     );
 }
 
@@ -67,20 +96,20 @@ function createDefaultData() {
 
     return {
 
-        version: 2,
+        version: 3,
 
         target: 0,
 
         dailyAmount: 0,
 
         /*
-           Original estimated days.
+           Original calculated number of days.
            This does NOT change when money is missed.
         */
         totalDays: 0,
 
         /*
-           Actual amount saved.
+           Actual total money saved.
         */
         saved: 0,
 
@@ -90,17 +119,24 @@ function createDefaultData() {
         currentDay: 1,
 
         /*
-           Money that was not saved previously
-           and must be added to today's target.
+           Previous day's missed amount.
         */
         carryForward: 0,
 
         /*
-           Daily records.
+           Daily saving records.
         */
         days: [],
 
-        createdAt: null
+        createdAt: null,
+
+        /*
+           Last amount entered.
+           Used to show Saved Today immediately.
+        */
+        lastSavedAmount: 0,
+
+        lastSavedDay: 0
 
     };
 }
@@ -114,42 +150,164 @@ function loadData() {
 
     try {
 
+        /*
+           Use v3 first.
+           If it does not exist, try the old v2 data.
+        */
+
         const raw =
-            localStorage.getItem(STORAGE_KEY);
+            localStorage.getItem(
+                STORAGE_KEY
+            ) ||
+            localStorage.getItem(
+                "customSavingChallenge_v2"
+            );
+
 
         if (!raw) {
 
             return createDefaultData();
         }
 
+
         const parsed =
             JSON.parse(raw);
 
+
         if (
             !parsed ||
-            !parsed.version ||
-            !parsed.target
+            !Number(parsed.target)
         ) {
 
             return createDefaultData();
         }
 
+
+        const fresh =
+            createDefaultData();
+
+
+        fresh.target =
+            Math.max(
+                0,
+                Number(parsed.target) || 0
+            );
+
+
+        fresh.dailyAmount =
+            Math.max(
+                0,
+                Number(parsed.dailyAmount) || 0
+            );
+
+
+        fresh.totalDays =
+            Math.max(
+                0,
+                Number(parsed.totalDays) ||
+                calculateDays(
+                    fresh.target,
+                    fresh.dailyAmount
+                )
+            );
+
+
+        fresh.saved =
+            Math.min(
+                fresh.target,
+                Math.max(
+                    0,
+                    Number(parsed.saved) || 0
+                )
+            );
+
+
+        fresh.currentDay =
+            Math.max(
+                1,
+                Number(parsed.currentDay) || 1
+            );
+
+
+        fresh.carryForward =
+            Math.max(
+                0,
+                Number(parsed.carryForward) || 0
+            );
+
+
+        fresh.createdAt =
+            parsed.createdAt || null;
+
+
+        fresh.lastSavedAmount =
+            Math.max(
+                0,
+                Number(
+                    parsed.lastSavedAmount
+                ) || 0
+            );
+
+
+        fresh.lastSavedDay =
+            Math.max(
+                0,
+                Number(
+                    parsed.lastSavedDay
+                ) || 0
+            );
+
+
         /*
-           Migration protection
-           for older version.
+           Convert old day records safely.
         */
 
-        if (parsed.carryForward === undefined) {
+        fresh.days =
+            Array.isArray(parsed.days)
 
-            parsed.carryForward = 0;
-        }
+                ? parsed.days.map(
+                    (day) => ({
 
-        if (!Array.isArray(parsed.days)) {
+                        day:
+                            Math.max(
+                                1,
+                                Number(day.day) || 1
+                            ),
 
-            parsed.days = [];
-        }
+                        planned:
+                            Math.max(
+                                0,
+                                Number(day.planned) || 0
+                            ),
 
-        return parsed;
+                        saved:
+                            Math.max(
+                                0,
+                                Number(day.saved) || 0
+                            ),
+
+                        remaining:
+                            Math.max(
+                                0,
+                                Number(day.remaining) || 0
+                            ),
+
+                        completed:
+                            Boolean(
+                                day.completed
+                            ),
+
+                        date:
+                            day.date || null
+
+                    })
+                )
+
+                : [];
+
+
+        return fresh;
+
 
     } catch (error) {
 
@@ -170,8 +328,11 @@ function loadData() {
 function saveData() {
 
     localStorage.setItem(
+
         STORAGE_KEY,
+
         JSON.stringify(data)
+
     );
 }
 
@@ -184,39 +345,67 @@ function populateTargets() {
 
     targetInput.innerHTML = "";
 
+
     for (
-        let amount = MIN_TARGET;
+
+        let amount =
+            MIN_TARGET;
+
         amount <= MAX_TARGET;
+
         amount += TARGET_STEP
+
     ) {
 
         const option =
-            document.createElement("option");
+            document.createElement(
+                "option"
+            );
 
-        option.value = amount;
+
+        option.value =
+            amount;
+
 
         option.textContent =
-            formatMoney(amount);
+            formatMoney(
+                amount
+            );
 
-        targetInput.appendChild(option);
+
+        targetInput.appendChild(
+            option
+        );
     }
 }
 
 
 /* =========================================
-   INITIAL DAY CALCULATION
+   CALCULATE DAYS
 ========================================= */
 
-function calculateDays(target, daily) {
+function calculateDays(
+    target,
+    daily
+) {
 
-    if (!daily || daily <= 0) {
+    if (
+        !daily ||
+        daily <= 0
+    ) {
 
         return 0;
     }
 
+
     return Math.max(
+
         1,
-        Math.ceil(target / daily)
+
+        Math.ceil(
+            target / daily
+        )
+
     );
 }
 
@@ -228,27 +417,34 @@ function calculateDays(target, daily) {
 function getRemainingGoal() {
 
     return Math.max(
-        data.target - data.saved,
+
+        Number(data.target) -
+        Number(data.saved),
+
         0
+
     );
 }
 
 
 /* =========================================
-   TODAY'S NORMAL TARGET
+   NORMAL DAILY TARGET
 ========================================= */
 
 function getNormalDailyTarget() {
 
     return Math.min(
-        data.dailyAmount,
+
+        Number(data.dailyAmount) || 0,
+
         getRemainingGoal()
+
     );
 }
 
 
 /* =========================================
-   TODAY'S TOTAL TARGET
+   TODAY TOTAL TARGET
 ========================================= */
 
 function getTodayTarget() {
@@ -256,14 +452,27 @@ function getTodayTarget() {
     const remainingGoal =
         getRemainingGoal();
 
-    if (remainingGoal <= 0) {
+
+    if (
+        remainingGoal <= 0
+    ) {
 
         return 0;
     }
 
+
     return Math.min(
-        data.dailyAmount + data.carryForward,
+
+        (
+            Number(data.dailyAmount) || 0
+        ) +
+
+        (
+            Number(data.carryForward) || 0
+        ),
+
         remainingGoal
+
     );
 }
 
@@ -275,60 +484,104 @@ function getTodayTarget() {
 function updatePreview() {
 
     const target =
-        Number(targetInput.value) ||
+        Number(
+            targetInput.value
+        ) ||
         MIN_TARGET;
 
+
     const daily =
-        Number(dailyAmountInput.value) ||
-        0;
+        Math.floor(
+            Number(
+                dailyAmountInput.value
+            ) || 0
+        );
 
-    $("previewTarget").textContent =
-        formatMoney(target);
 
-    $("previewDaily").textContent =
+    $("previewTarget")
+        .textContent =
+        formatMoney(
+            target
+        );
+
+
+    $("previewDaily")
+        .textContent =
+
         daily > 0
-            ? formatMoney(daily)
+
+            ? formatMoney(
+                daily
+            )
+
             : "Rs.0";
 
-    $("previewDays").textContent =
+
+    $("previewDays")
+        .textContent =
+
         daily > 0
+
             ? calculateDays(
                 target,
                 daily
-            ).toLocaleString("en-US")
+            ).toLocaleString(
+                "en-US"
+            )
+
             : "—";
 }
 
 
 /* =========================================
-   FORM MESSAGE
+   MESSAGE
 ========================================= */
 
 function showFormMessage(
+
     element,
+
     message,
+
     type = "error"
+
 ) {
 
-    if (!element) return;
+    if (!element) {
 
-    element.textContent = message;
+        return;
+    }
+
+
+    element.textContent =
+        message;
+
 
     element.className =
-        "form-message " + type;
+        "form-message " +
+        type;
+
 
     window.clearTimeout(
         element._timer
     );
 
+
     element._timer =
         window.setTimeout(
+
             () => {
 
-                element.textContent = "";
+                element.textContent =
+                    "";
+
+                element.className =
+                    "form-message";
 
             },
+
             5000
+
         );
 }
 
@@ -340,56 +593,71 @@ function showFormMessage(
 function createChallenge() {
 
     const target =
-        Number(targetInput.value);
+        Number(
+            targetInput.value
+        );
+
 
     const daily =
         Math.floor(
+
             Number(
                 dailyAmountInput.value
             )
+
         );
 
 
-    /* -----------------------------------------
-       VALIDATE TARGET
-    ----------------------------------------- */
+    /* TARGET VALIDATION */
 
     if (
+
         !target ||
+
         target < MIN_TARGET ||
+
         target > MAX_TARGET ||
+
         target % TARGET_STEP !== 0
+
     ) {
 
         showFormMessage(
+
             setupMessage,
+
             "Please select a valid target from Rs.5,000 to Rs.500,000."
+
         );
 
         return;
     }
 
 
-    /* -----------------------------------------
-       VALIDATE DAILY AMOUNT
-    ----------------------------------------- */
+    /* DAILY VALIDATION */
 
-    if (!daily || daily < 1) {
+    if (
+        !daily ||
+        daily < 1
+    ) {
 
         showFormMessage(
+
             setupMessage,
+
             "Please enter a daily saving amount greater than Rs.0."
+
         );
 
         return;
     }
 
 
-    /* -----------------------------------------
-       DAILY > TARGET
-    ----------------------------------------- */
+    /* DAILY > TARGET */
 
-    if (daily > target) {
+    if (
+        daily > target
+    ) {
 
         const ok =
             window.confirm(
@@ -403,17 +671,21 @@ function createChallenge() {
             );
 
 
-        if (!ok) return;
+        if (!ok) {
+
+            return;
+        }
     }
 
 
-    /* -----------------------------------------
-       EXISTING CHALLENGE
-    ----------------------------------------- */
+    /* EXISTING CHALLENGE */
 
     if (
+
         data.target > 0 &&
+
         data.saved > 0
+
     ) {
 
         const ok =
@@ -428,21 +700,24 @@ function createChallenge() {
             );
 
 
-        if (!ok) return;
+        if (!ok) {
+
+            return;
+        }
     }
 
 
-    /* -----------------------------------------
-       CREATE NEW DATA
-    ----------------------------------------- */
+    /* NEW DATA */
 
     data = {
 
-        version: 2,
+        version: 3,
 
-        target: target,
+        target:
+            target,
 
-        dailyAmount: daily,
+        dailyAmount:
+            daily,
 
         totalDays:
             calculateDays(
@@ -450,27 +725,31 @@ function createChallenge() {
                 daily
             ),
 
-        saved: 0,
+        saved:
+            0,
 
-        currentDay: 1,
+        currentDay:
+            1,
 
-        /*
-           IMPORTANT:
-           New challenge starts with zero carry.
-        */
-        carryForward: 0,
+        carryForward:
+            0,
 
-        days: [],
+        days:
+            [],
 
         createdAt:
-            new Date().toISOString()
+            new Date().toISOString(),
+
+        lastSavedAmount:
+            0,
+
+        lastSavedDay:
+            0
 
     };
 
 
-    /* -----------------------------------------
-       CREATE FIRST DAY
-    ----------------------------------------- */
+    /* FIRST DAY */
 
     ensureCurrentDay();
 
@@ -478,13 +757,14 @@ function createChallenge() {
     saveData();
 
 
-    setupSection.classList.add(
-        "hidden"
-    );
+    setupSection
+        .classList
+        .add("hidden");
 
-    challengeSection.classList.remove(
-        "hidden"
-    );
+
+    challengeSection
+        .classList
+        .remove("hidden");
 
 
     render();
@@ -498,8 +778,11 @@ function createChallenge() {
 function ensureCurrentDay() {
 
     if (
+
         !data.target ||
+
         data.saved >= data.target
+
     ) {
 
         return null;
@@ -508,8 +791,11 @@ function ensureCurrentDay() {
 
     let day =
         data.days.find(
+
             item =>
-                item.day === data.currentDay
+                item.day ===
+                data.currentDay
+
         );
 
 
@@ -519,13 +805,13 @@ function ensureCurrentDay() {
     }
 
 
-    /* -----------------------------------------
-       TODAY'S TARGET
+    /*
+       Today's target:
 
-       Normal daily amount
+       Normal Daily
        +
-       previous missed amount
-    ----------------------------------------- */
+       Previous Remaining
+    */
 
     const todayTarget =
         getTodayTarget();
@@ -533,31 +819,30 @@ function ensureCurrentDay() {
 
     day = {
 
-        day: data.currentDay,
+        day:
+            data.currentDay,
 
-        /*
-           This is the ACTUAL target for today.
-        */
-        planned: todayTarget,
+        planned:
+            todayTarget,
 
-        /*
-           How much user actually saved today.
-        */
-        saved: 0,
+        saved:
+            0,
 
-        /*
-           How much is still missing.
-        */
-        remaining: todayTarget,
+        remaining:
+            todayTarget,
 
-        completed: false,
+        completed:
+            false,
 
-        date: null
+        date:
+            null
 
     };
 
 
-    data.days.push(day);
+    data.days.push(
+        day
+    );
 
 
     return day;
@@ -565,294 +850,124 @@ function ensureCurrentDay() {
 
 
 /* =========================================
-   GET CURRENT DAY
+   CURRENT DAY
 ========================================= */
 
 function getCurrentDayRecord() {
 
     return data.days.find(
+
         item =>
-            item.day === data.currentDay
+            item.day ===
+            data.currentDay
+
     );
 }
 
 
 /* =========================================
    ADD TODAY'S SAVING
+   IMPORTANT:
+   NO PROMPT
 ========================================= */
 
 function addTodaySaving() {
 
-    if (!data.target || !data.dailyAmount) {
+    /* CHECK CHALLENGE */
+
+    if (
+        !data.target ||
+        !data.dailyAmount
+    ) {
 
         showFormMessage(
+
             paymentMessage,
+
             "Create a saving challenge first."
+
         );
 
         return;
     }
 
 
-    /* Goal already completed */
-
-    if (data.saved >= data.target) {
-
-        showFormMessage(
-            paymentMessage,
-            "🎉 Your goal is already completed!",
-            "success"
-        );
-
-        return;
-    }
-
-
-    /* Get today's current record */
-
-    const day = ensureCurrentDay();
-
-    if (!day) {
-        return;
-    }
-
-
-    if (day.completed) {
-
-        showFormMessage(
-            paymentMessage,
-            "Today's saving has already been recorded.",
-            "error"
-        );
-
-        return;
-    }
-
-
-    /* =========================================
-       GET AMOUNT FROM THE INPUT BOX
-       NO POPUP
-    ========================================= */
-
-    const input = $("todaySavingInput");
-
-    const amount = Math.floor(
-        Number(input.value)
-    );
-
-
-    /* =========================================
-       VALIDATE
-    ========================================= */
+    /* GOAL COMPLETED */
 
     if (
-        Number.isNaN(amount) ||
+        data.saved >=
+        data.target
+    ) {
+
+        showFormMessage(
+
+            paymentMessage,
+
+            "🎉 Your goal is already completed!",
+
+            "success"
+
+        );
+
+        return;
+    }
+
+
+    /* GET INPUT */
+
+    const input =
+        $("todaySavingInput");
+
+
+    if (!input) {
+
+        showFormMessage(
+
+            paymentMessage,
+
+            "Saving input was not found."
+
+        );
+
+        return;
+    }
+
+
+    const amount =
+        Math.floor(
+            Number(
+                input.value
+            )
+        );
+
+
+    /* VALIDATE */
+
+    if (
+
+        !Number.isFinite(
+            amount
+        ) ||
+
         amount < 0
+
     ) {
 
         showFormMessage(
+
             paymentMessage,
+
             "Please enter a valid saving amount.",
+
             "error"
+
         );
 
         return;
     }
 
 
-    /* =========================================
-       TODAY'S TARGET
-    ========================================= */
-
-    const todayTarget =
-        getTodayTarget();
-
-
-    /* =========================================
-       PREVIOUS TOTAL
-       BEFORE TODAY'S SAVING
-    ========================================= */
-
-    const previousSaved =
-        data.saved;
-
-
-    /* =========================================
-       AMOUNT THAT CAN ACTUALLY BE ADDED
-       
-       Extra saving is allowed,
-       but total target cannot be exceeded.
-    ========================================= */
-
-    const amountToAdd =
-        Math.min(
-            amount,
-            data.target - previousSaved
-        );
-
-
-    /* =========================================
-       UPDATE TOTAL SAVED
-    ========================================= */
-
-    data.saved += amountToAdd;
-
-
-    /* =========================================
-       SAVE TODAY'S RECORD
-    ========================================= */
-
-    day.saved = amountToAdd;
-
-    day.date =
-        new Date().toISOString();
-
-
-    /* =========================================
-       CALCULATE TODAY'S REMAINING
-    ========================================= */
-
-    day.remaining =
-        Math.max(
-            todayTarget - amountToAdd,
-            0
-        );
-
-
-    /* =========================================
-       CARRY FORWARD
-    ========================================= */
-
-    if (day.remaining > 0) {
-
-        /*
-           Example:
-
-           Today's target = Rs.500
-           Saved = Rs.300
-
-           Carry = Rs.200
-        */
-
-        data.carryForward =
-            day.remaining;
-
-    } else {
-
-        /*
-           Today's target completed.
-        */
-
-        data.carryForward = 0;
-    }
-
-
-    /* =========================================
-       MARK TODAY COMPLETE
-       
-       The button represents today's action,
-       so today is recorded after pressing it.
-    ========================================= */
-
-    day.completed = true;
-
-
-    /* =========================================
-       MOVE TO NEXT DAY
-    ========================================= */
-
-    if (data.saved < data.target) {
-
-        data.currentDay += 1;
-
-        /*
-           Automatically create tomorrow's
-           target using carry-forward.
-        */
-
-        ensureCurrentDay();
-    }
-
-
-    /* =========================================
-       SAVE TO LOCAL STORAGE
-    ========================================= */
-
-    saveData();
-
-
-    /* =========================================
-       CLEAR INPUT
-    ========================================= */
-
-    input.value = "";
-
-
-    /* =========================================
-       UPDATE EVERYTHING
-    ========================================= */
-
-    render();
-
-
-    /* =========================================
-       MESSAGE
-    ========================================= */
-
-    if (data.saved >= data.target) {
-
-        showFormMessage(
-            paymentMessage,
-            "🎉 Goal completed! You reached your target.",
-            "success"
-        );
-
-        return;
-    }
-
-
-    if (day.remaining > 0) {
-
-        showFormMessage(
-            paymentMessage,
-
-            `✅ Day ${day.day} completed — ` +
-            `${formatMoney(amountToAdd)} saved. ` +
-            `${formatMoney(day.remaining)} carried forward to tomorrow.`,
-
-            "success"
-        );
-
-    } else {
-
-        showFormMessage(
-            paymentMessage,
-
-            `✅ Day ${day.day} completed — ` +
-            `${formatMoney(amountToAdd)} saved.`,
-
-            "success"
-        );
-    }
-}
-
-    /* -----------------------------------------
-       GOAL ALREADY COMPLETE
-    ----------------------------------------- */
-
-    if (
-        data.saved >= data.target
-    ) {
-
-        showFormMessage(
-            paymentMessage,
-            "🎉 Your goal is already completed!",
-            "success"
-        );
-
-        return;
-    }
-
+    /* CURRENT DAY */
 
     const day =
         ensureCurrentDay();
@@ -864,307 +979,205 @@ function addTodaySaving() {
     }
 
 
-    if (day.completed) {
+    if (
+        day.completed
+    ) {
 
         showFormMessage(
+
             paymentMessage,
+
             "Today's saving has already been recorded.",
+
             "error"
+
         );
 
         return;
     }
 
 
-    /* =========================================
-       ASK USER HOW MUCH THEY ACTUALLY SAVED
-    ========================================= */
+    /*
+       TODAY'S TARGET
+    */
 
     const todayTarget =
-        getTodayTarget();
+        Number(
+            day.planned
+        ) || 0;
 
 
-    const input =
-        window.prompt(
+    /*
+       OLD TOTAL
+    */
 
-            "Today's saving target:\n\n" +
-
-            `${formatMoney(todayTarget)}\n\n` +
-
-            "How much did you actually save today?\n\n" +
-
-            "Enter 0 if you could not save anything."
-
-        );
+    const oldTotalSaved =
+        Number(
+            data.saved
+        ) || 0;
 
 
-    /* -----------------------------------------
-       CANCEL
-    ----------------------------------------- */
-
-    if (input === null) {
-
-        return;
-    }
-
-
-    const amount =
-        Math.floor(
-            Number(input)
-        );
-
-
-    /* -----------------------------------------
-       INVALID AMOUNT
-    ----------------------------------------- */
-
-    if (
-        Number.isNaN(amount) ||
-        amount < 0
-    ) {
-
-        showFormMessage(
-            paymentMessage,
-            "Please enter a valid amount.",
-            "error"
-        );
-
-        return;
-    }
-
-
-    /* =========================================
-       AMOUNT TO SAVE
-
-       User can save MORE than today's target.
+    /*
+       ONLY THE REMAINING MAIN GOAL
+       CAN BE COUNTED.
 
        Example:
-       Target = 500
-       User saves = 700
 
-       Full Rs.700 is counted.
-    ========================================= */
+       Target = Rs.5,000
 
-    const actualAmount =
-        amount;
+       Already saved = Rs.4,800
 
+       User enters = Rs.500
 
-    /* -----------------------------------------
-       UPDATE TOTAL SAVED
-    ----------------------------------------- */
-
-    data.saved += actualAmount;
-
-
-    /*
-       Never allow total saved
-       to exceed the main target.
+       Only Rs.200 is counted.
     */
 
-    if (
-        data.saved > data.target
-    ) {
-
-        data.saved =
-            data.target;
-    }
-
-
-    /* =========================================
-       HOW MUCH WAS ACTUALLY COUNTED
-    ========================================= */
-
-    const countedAmount =
-        data.saved -
-        (
-            data.saved -
-            actualAmount
-        );
-
-
-    /*
-       The above calculation is protected
-       below with a simpler safe value.
-    */
-
-    const previousSaved =
-        data.saved -
+    const amountToAdd =
         Math.min(
-            actualAmount,
-            data.saved
-        );
 
+            amount,
 
-    /* =========================================
-       DAY RECORD
-    ========================================= */
+            Math.max(
 
-    const previousTotal =
-        Math.max(
-            data.saved -
-            Math.min(
-                actualAmount,
-                data.saved
-            ),
-            0
-        );
+                data.target -
+                oldTotalSaved,
 
+                0
 
-    /*
-       Actual amount counted for this day.
-    */
-
-    const savedForDay =
-        Math.min(
-            actualAmount,
-            todayTarget
-        );
-
-
-    /*
-       If user saves MORE than today's target,
-       extra money still goes toward the goal.
-
-       So calculate from previous total.
-    */
-
-    const beforeSaving =
-        data.saved -
-        Math.min(
-            actualAmount,
-            getRemainingGoal() +
-            actualAmount
-        );
-
-
-    /* =========================================
-       SAFER DAY SAVED CALCULATION
-    ========================================= */
-
-    const oldSaved =
-        Math.max(
-            0,
-            data.saved -
-            Math.min(
-                actualAmount,
-                data.target
             )
+
         );
-
-
-    let daySaved =
-        data.saved -
-        oldSaved;
 
 
     /*
-       Limit to actual amount entered.
+       UPDATE TOTAL
     */
 
-    daySaved =
-        Math.min(
-            actualAmount,
-            data.target - oldSaved
-        );
+    data.saved =
+        oldTotalSaved +
+        amountToAdd;
 
+
+    /*
+       SAVE TODAY'S RECORD
+    */
 
     day.saved =
-        Math.max(
-            0,
-            daySaved
-        );
+        amountToAdd;
 
-
-    /* =========================================
-       CALCULATE TODAY REMAINING
-    ========================================= */
 
     day.remaining =
         Math.max(
+
             todayTarget -
-            day.saved,
+            amountToAdd,
+
             0
+
         );
 
 
+    day.completed =
+        true;
+
+
     day.date =
-        new Date().toISOString();
+        new Date()
+            .toISOString();
 
 
-    day.completed = true;
+    /*
+       CARRY FORWARD
+
+       Example:
+
+       Target = Rs.500
+
+       Saved = Rs.300
+
+       Remaining = Rs.200
+
+       Tomorrow:
+
+       Normal Rs.500
+       +
+       Carry Rs.200
+
+       = Rs.700
+    */
+
+    data.carryForward =
+        day.remaining;
 
 
-    /* =========================================
-       ⭐ CARRY FORWARD LOGIC
-    ========================================= */
+    /*
+       SAVE LAST AMOUNT
+       FOR UI
+    */
 
-    if (
-        day.remaining > 0
-    ) {
-
-        /*
-           User did NOT save enough.
-
-           Example:
-
-           Today's target = 500
-           Saved = 300
-
-           Carry = 200
-        */
-
-        data.carryForward =
-            day.remaining;
-
-    } else {
-
-        /*
-           Today's target completed.
-           No previous shortage.
-        */
-
-        data.carryForward = 0;
-    }
+    data.lastSavedAmount =
+        amountToAdd;
 
 
-    /* =========================================
+    data.lastSavedDay =
+        day.day;
+
+
+    /*
        MOVE TO NEXT DAY
-    ========================================= */
+    */
 
     if (
-        data.saved < data.target
+        data.saved <
+        data.target
     ) {
 
         data.currentDay += 1;
 
+
         /*
-           Create next day automatically.
+           Automatically create
+           tomorrow's target.
         */
 
         ensureCurrentDay();
+
+    } else {
+
+        data.carryForward =
+            0;
     }
 
 
-    /* =========================================
+    /*
+       CLEAR INPUT
+    */
+
+    input.value =
+        "";
+
+
+    /*
        SAVE
-    ========================================= */
+    */
 
     saveData();
 
 
-    /* =========================================
+    /*
        UPDATE UI
-    ========================================= */
+    */
 
     render();
 
 
-    /* =========================================
-       MESSAGE
-    ========================================= */
+    /*
+       SUCCESS MESSAGE
+    */
 
     if (
-        data.saved >= data.target
+        data.saved >=
+        data.target
     ) {
 
         showFormMessage(
@@ -1174,6 +1187,7 @@ function addTodaySaving() {
             "🎉 Goal completed! You reached your target.",
 
             "success"
+
         );
 
         return;
@@ -1188,13 +1202,18 @@ function addTodaySaving() {
 
             paymentMessage,
 
-            `Day ${day.day} completed — ` +
+            `✅ Day ${day.day} completed — ` +
 
-            `${formatMoney(day.saved)} saved.\n` +
+            `${formatMoney(
+                amountToAdd
+            )} saved. ` +
 
-            `${formatMoney(day.remaining)} will carry forward to tomorrow.`,
+            `${formatMoney(
+                day.remaining
+            )} carried forward to tomorrow.`,
 
             "success"
+
         );
 
     } else {
@@ -1205,9 +1224,12 @@ function addTodaySaving() {
 
             `✅ Day ${day.day} completed — ` +
 
-            `${formatMoney(day.saved)} saved.`,
+            `${formatMoney(
+                amountToAdd
+            )} saved.`,
 
             "success"
+
         );
     }
 }
@@ -1219,7 +1241,9 @@ function addTodaySaving() {
 
 function getProgress() {
 
-    if (!data.target) {
+    if (
+        !data.target
+    ) {
 
         return 0;
     }
@@ -1233,6 +1257,7 @@ function getProgress() {
         ) * 100,
 
         100
+
     );
 }
 
@@ -1244,81 +1269,157 @@ function getProgress() {
 function getCompletedDays() {
 
     return data.days.filter(
+
         day =>
             day.completed
+
     );
 }
 
 
+/* =========================================
+   UPDATE STATS
+========================================= */
+
 function updateStats() {
 
-    const progress = getProgress();
+    const progress =
+        getProgress();
+
 
     const remaining =
         getRemainingGoal();
 
+
     const completedDays =
         getCompletedDays().length;
 
-
-    /* =========================================
-       CURRENT DAY
-    ========================================= */
 
     const currentDay =
         getCurrentDayRecord();
 
 
     /*
-       Today's actual target
-       = normal daily amount
-       + previous remaining
+       NORMAL DAILY TARGET
     */
 
     const normalDaily =
         Math.min(
-            data.dailyAmount,
+
+            Number(
+                data.dailyAmount
+            ) || 0,
+
             remaining
+
         );
 
 
-    const carryForward =
-        Number(data.carryForward) || 0;
+    /*
+       PREVIOUS REMAINING
+    */
 
+    const carryForward =
+        Math.min(
+
+            Number(
+                data.carryForward
+            ) || 0,
+
+            remaining
+
+        );
+
+
+    /*
+       TODAY TOTAL
+
+       Normal + Carry
+    */
 
     const todayTarget =
         currentDay
-            ? Number(currentDay.planned) || 0
+
+            ? Number(
+                currentDay.planned
+            ) || 0
+
             : getTodayTarget();
 
 
+    /*
+       SAVED TODAY
+
+       Because currentDay is the next
+       pending day after clicking,
+       show the last amount entered.
+    */
+
     const savedToday =
-        currentDay
-            ? Number(currentDay.saved) || 0
+        data.lastSavedDay ===
+        data.currentDay - 1
+
+            ? Number(
+                data.lastSavedAmount
+            ) || 0
+
             : 0;
 
 
+    /*
+       TODAY'S REMAINING
+
+       This is the CURRENT pending day's
+       remaining amount.
+    */
+
     const todayRemaining =
         currentDay
+
             ? Math.max(
-                Number(currentDay.remaining) || 0,
+
+                Number(
+                    currentDay.remaining
+                ) || 0,
+
                 0
+
             )
-            : Math.max(
-                todayTarget - savedToday,
-                0
-            );
+
+            : 0;
 
 
-    /* =========================================
-       DAYS
-    ========================================= */
+    /*
+       TOTAL DAYS
+
+       Never reduce the original calculated
+       number because of missed saving.
+
+       If carry-forward causes the challenge
+       to continue beyond original days,
+       show the extra days too.
+    */
+
+    const effectiveTotalDays =
+        Math.max(
+
+            Number(
+                data.totalDays
+            ) || 0,
+
+            data.days.length
+
+        );
+
 
     const daysLeft =
         Math.max(
-            data.totalDays -
+
+            effectiveTotalDays -
             completedDays,
+
             0
+
         );
 
 
@@ -1326,250 +1427,94 @@ function updateStats() {
        MAIN STATS
     ========================================= */
 
-    $("targetAmount").textContent =
-        formatMoney(data.target);
-
-
-    $("savedAmount").textContent =
-        formatMoney(data.saved);
-
-
-    $("remainingAmount").textContent =
-        formatMoney(remaining);
-
-
-    $("currentDay").textContent =
-
-        data.saved >= data.target
-
-            ? "Completed 🎉"
-
-            : `Day ${data.currentDay}`;
-
-
-    /* =========================================
-       PROGRESS
-    ========================================= */
-
-    $("progressText").textContent =
-        `${progress.toFixed(2)}% completed`;
-
-
-    $("progressPercent").textContent =
-        `${progress.toFixed(2)}%`;
-
-
-    $("progressFill").style.width =
-        `${progress}%`;
-
-
-    /* =========================================
-       DAYS
-    ========================================= */
-
-    $("completedDays").textContent =
-        completedDays.toLocaleString("en-US");
-
-
-    $("totalDays").textContent =
-        data.totalDays.toLocaleString("en-US");
-
-
-    $("daysRemaining").textContent =
-        daysLeft.toLocaleString("en-US");
-
-
-    /* =========================================
-       TODAY MAIN DISPLAY
-    ========================================= */
-
-    $("todayAmount").textContent =
-
-        data.saved >= data.target
-
-            ? "Goal Reached 🎉"
-
-            : formatMoney(todayTarget);
-
-
-    $("todayDescription").textContent =
-
-        data.saved >= data.target
-
-            ? "You have completed this saving challenge."
-
-            : `Today's target: ${formatMoney(todayTarget)}. ` +
-              `Remaining: ${formatMoney(todayRemaining)}.`;
-
-
-    /* =========================================
-       ⭐ TODAY BREAKDOWN
-    ========================================= */
-
-    /*
-       1. NORMAL DAILY TARGET
-    */
-
-    $("normalDailyTarget").textContent =
-        formatMoney(normalDaily);
-
-
-    /*
-       2. PREVIOUS REMAINING
-    */
-
-    $("carryForwardAmount").textContent =
-        formatMoney(carryForward);
-
-
-    /*
-       3. TODAY'S TOTAL TARGET
-    */
-
-    $("todayTotalTarget").textContent =
-        formatMoney(todayTarget);
-
-
-    /*
-       4. SAVED TODAY
-    */
-
-    $("savedToday").textContent =
-        formatMoney(savedToday);
-
-
-    /*
-       5. TODAY'S REMAINING
-    */
-
-    $("todayRemaining").textContent =
-        formatMoney(todayRemaining);
-
-
-    /* =========================================
-       SUMMARY
-    ========================================= */
-
-    $("summarySaved").textContent =
-        formatMoney(data.saved);
-
-
-    $("summaryRemaining").textContent =
-        formatMoney(remaining);
-
-
-    $("summaryProgress").textContent =
-        `${progress.toFixed(2)}%`;
-
-
-    $("summaryDaily").textContent =
-        formatMoney(data.dailyAmount);
-
-
-    /* =========================================
-       TABLE STATS
-    ========================================= */
-
-    $("tableCompleted").textContent =
-        completedDays.toLocaleString("en-US");
-
-
-    $("tableTotal").textContent =
-        data.totalDays.toLocaleString("en-US");
-
-
-    /* =========================================
-       BUTTON
-    ========================================= */
-
-    addSavingBtn.disabled =
-        data.saved >= data.target;
-
-
-    addSavingBtn.textContent =
-
-        data.saved >= data.target
-
-            ? "✓ Goal Completed"
-
-            : "✓ Add Today's Saving";
-}
-    /* -----------------------------------------
-       MAIN STATS
-    ----------------------------------------- */
-
-    $("targetAmount").textContent =
+    $("targetAmount")
+        .textContent =
         formatMoney(
             data.target
         );
 
 
-    $("savedAmount").textContent =
+    $("savedAmount")
+        .textContent =
         formatMoney(
             data.saved
         );
 
 
-    $("remainingAmount").textContent =
+    $("remainingAmount")
+        .textContent =
         formatMoney(
             remaining
         );
 
 
-    $("currentDay").textContent =
+    $("currentDay")
+        .textContent =
 
-        data.saved >= data.target
+        data.saved >=
+        data.target
 
             ? "Completed 🎉"
 
             : `Day ${data.currentDay}`;
 
 
-    /* -----------------------------------------
+    /* =========================================
        PROGRESS
-    ----------------------------------------- */
+    ========================================= */
 
-    $("progressText").textContent =
+    $("progressText")
+        .textContent =
         `${progress.toFixed(2)}% completed`;
 
 
-    $("progressPercent").textContent =
+    $("progressPercent")
+        .textContent =
         `${progress.toFixed(2)}%`;
 
 
-    $("progressFill").style.width =
+    $("progressFill")
+        .style.width =
         `${progress}%`;
 
 
-    /* -----------------------------------------
+    /* =========================================
        DAYS
-    ----------------------------------------- */
+    ========================================= */
 
-    $("completedDays").textContent =
-        completedDays.toLocaleString(
-            "en-US"
-        );
-
-
-    $("totalDays").textContent =
-        data.totalDays.toLocaleString(
-            "en-US"
-        );
+    $("completedDays")
+        .textContent =
+        completedDays
+            .toLocaleString(
+                "en-US"
+            );
 
 
-    $("daysRemaining").textContent =
-        daysLeft.toLocaleString(
-            "en-US"
-        );
+    $("totalDays")
+        .textContent =
+        effectiveTotalDays
+            .toLocaleString(
+                "en-US"
+            );
 
 
-    /* -----------------------------------------
+    $("daysRemaining")
+        .textContent =
+        daysLeft
+            .toLocaleString(
+                "en-US"
+            );
+
+
+    /* =========================================
        TODAY
-    ----------------------------------------- */
+    ========================================= */
 
-    $("todayAmount").textContent =
+    $("todayAmount")
+        .textContent =
 
-        data.saved >= data.target
+        data.saved >=
+        data.target
 
             ? "Goal Reached 🎉"
 
@@ -1578,73 +1523,123 @@ function updateStats() {
             );
 
 
-    $("todayDescription").textContent =
+    $("todayDescription")
+        .textContent =
 
-        data.saved >= data.target
+        data.saved >=
+        data.target
 
             ? "You have completed this saving challenge."
 
-            : todayRemaining > 0
+            : `Today's target: ${formatMoney(
+                todayTarget
+            )}. Remaining: ${formatMoney(
+                todayRemaining
+            )}.`;
 
-                ? `Today's target: ${formatMoney(todayTarget)}. ` +
-                  `Remaining: ${formatMoney(todayRemaining)}.`
 
-                : "Today's saving is complete.";
+    /* =========================================
+       ⭐ BREAKDOWN
+    ========================================= */
+
+    $("normalDailyTarget")
+        .textContent =
+        formatMoney(
+            normalDaily
+        );
 
 
-    /* -----------------------------------------
+    $("carryForwardAmount")
+        .textContent =
+        formatMoney(
+            carryForward
+        );
+
+
+    $("todayTotalTarget")
+        .textContent =
+        formatMoney(
+            todayTarget
+        );
+
+
+    $("savedToday")
+        .textContent =
+        formatMoney(
+            savedToday
+        );
+
+
+    $("todayRemaining")
+        .textContent =
+        formatMoney(
+            todayRemaining
+        );
+
+
+    /* =========================================
        SUMMARY
-    ----------------------------------------- */
+    ========================================= */
 
-    $("summarySaved").textContent =
+    $("summarySaved")
+        .textContent =
         formatMoney(
             data.saved
         );
 
 
-    $("summaryRemaining").textContent =
+    $("summaryRemaining")
+        .textContent =
         formatMoney(
             remaining
         );
 
 
-    $("summaryProgress").textContent =
+    $("summaryProgress")
+        .textContent =
         `${progress.toFixed(2)}%`;
 
 
-    $("summaryDaily").textContent =
+    $("summaryDaily")
+        .textContent =
         formatMoney(
             data.dailyAmount
         );
 
 
-    /* -----------------------------------------
-       TABLE STATS
-    ----------------------------------------- */
+    /* =========================================
+       TABLE
+    ========================================= */
 
-    $("tableCompleted").textContent =
-        completedDays.toLocaleString(
-            "en-US"
-        );
-
-
-    $("tableTotal").textContent =
-        data.totalDays.toLocaleString(
-            "en-US"
-        );
+    $("tableCompleted")
+        .textContent =
+        completedDays
+            .toLocaleString(
+                "en-US"
+            );
 
 
-    /* -----------------------------------------
+    $("tableTotal")
+        .textContent =
+        effectiveTotalDays
+            .toLocaleString(
+                "en-US"
+            );
+
+
+    /* =========================================
        BUTTON
-    ----------------------------------------- */
+    ========================================= */
 
     addSavingBtn.disabled =
-        data.saved >= data.target;
+        data.saved >=
+        data.target;
 
 
     addSavingBtn.textContent =
 
-        data.saved >= data.target
+        data.saved >=
+        data.target
 
             ? "✓ Goal Completed"
 
@@ -1653,80 +1648,29 @@ function updateStats() {
 
 
 /* =========================================
-   RENDER TABLE
+   TABLE
 ========================================= */
 
 function renderTable() {
 
-    savingTableBody.innerHTML = "";
+    savingTableBody.innerHTML =
+        "";
 
 
-    if (!data.target) {
+    if (
+        !data.target
+    ) {
 
         return;
     }
 
 
-    const completed =
-        data.days.filter(
-            day =>
-                day.completed
-        );
+    const visible =
+        data.days.slice(-30);
 
-
-    const upcoming =
-        data.days.filter(
-            day =>
-                !day.completed
-        );
-
-
-    let visible = [];
-
-
-    /* -----------------------------------------
-       LAST COMPLETED DAYS
-    ----------------------------------------- */
-
-    if (
-        completed.length > 0
-    ) {
-
-        visible =
-            completed.slice(-20);
-    }
-
-
-    /* -----------------------------------------
-       UPCOMING
-    ----------------------------------------- */
-
-    visible =
-        visible.concat(
-            upcoming.slice(0, 10)
-        );
-
-
-    /* -----------------------------------------
-       REMOVE DUPLICATES
-    ----------------------------------------- */
-
-    visible =
-        visible.filter(
-            (day, index, arr) =>
-
-                arr.findIndex(
-                    x =>
-                        x.day === day.day
-                ) === index
-        );
-
-
-    /* -----------------------------------------
-       CREATE ROWS
-    ----------------------------------------- */
 
     visible.forEach(
+
         day => {
 
             const row =
@@ -1736,6 +1680,7 @@ function renderTable() {
 
 
             const status =
+
                 day.completed
 
                     ? '<span class="status completed">✓ Completed</span>'
@@ -1747,16 +1692,30 @@ function renderTable() {
 
                 <td>
                     <strong>
-                        Day ${day.day.toLocaleString("en-US")}
+                        Day ${Number(
+                            day.day
+                        ).toLocaleString(
+                            "en-US"
+                        )}
                     </strong>
                 </td>
 
                 <td>
-                    ${formatMoney(day.planned)}
+                    ${formatMoney(
+                        day.planned
+                    )}
                 </td>
 
                 <td>
-                    ${formatMoney(day.saved)}
+                    ${formatMoney(
+                        day.saved
+                    )}
+                </td>
+
+                <td>
+                    ${formatMoney(
+                        day.remaining
+                    )}
                 </td>
 
                 <td>
@@ -1773,23 +1732,25 @@ function renderTable() {
     );
 
 
-    /* -----------------------------------------
-       TABLE NOTE
-    ----------------------------------------- */
-
     const hiddenCount =
         Math.max(
+
             data.days.length -
             visible.length,
+
             0
+
         );
 
 
-    $("tableNote").textContent =
+    $("tableNote")
+        .textContent =
 
         hiddenCount
 
-            ? `Showing the latest completed days and upcoming days. ${hiddenCount.toLocaleString("en-US")} older entries are hidden for performance.`
+            ? `Showing the latest 30 days. ${hiddenCount.toLocaleString(
+                "en-US"
+            )} older entries are hidden.`
 
             : "Your saving history will grow automatically as you complete each day.";
 }
@@ -1816,19 +1777,24 @@ function drawChart() {
 
 
     const dpr =
-        window.devicePixelRatio || 1;
+        window.devicePixelRatio ||
+        1;
 
 
     const width =
         Math.max(
+
             320,
+
             Math.floor(
                 rect.width
             )
+
         );
 
 
-    const height = 280;
+    const height =
+        280;
 
 
     canvas.width =
@@ -1840,35 +1806,45 @@ function drawChart() {
 
 
     const ctx =
-        canvas.getContext("2d");
+        canvas.getContext(
+            "2d"
+        );
 
 
-    ctx.scale(
+    ctx.setTransform(
+
         dpr,
-        dpr
+        0,
+        0,
+        dpr,
+        0,
+        0
+
     );
 
 
     ctx.clearRect(
+
         0,
         0,
         width,
         height
+
     );
 
 
-    /* -----------------------------------------
-       COMPLETED DAYS
-    ----------------------------------------- */
-
     const completed =
         data.days.filter(
+
             day =>
                 day.completed
+
         );
 
 
-    if (!completed.length) {
+    if (
+        !completed.length
+    ) {
 
         ctx.fillStyle =
             "#777";
@@ -1896,10 +1872,6 @@ function drawChart() {
         return;
     }
 
-
-    /* -----------------------------------------
-       LAST 30 DAYS
-    ----------------------------------------- */
 
     const items =
         completed.slice(-30);
@@ -1934,11 +1906,17 @@ function drawChart() {
         Math.max(
 
             ...items.map(
-                x =>
-                    x.saved
+
+                item =>
+                    Number(
+                        item.saved
+                    ) || 0
+
             ),
 
-            data.dailyAmount,
+            Number(
+                data.dailyAmount
+            ) || 0,
 
             1
 
@@ -1952,14 +1930,15 @@ function drawChart() {
 
     const barW =
         Math.max(
+
             5,
+
             step * 0.58
+
         );
 
 
-    /* -----------------------------------------
-       GRID
-    ----------------------------------------- */
+    /* GRID */
 
     ctx.font =
         "11px Inter, Arial, sans-serif";
@@ -1974,9 +1953,13 @@ function drawChart() {
 
 
     for (
+
         let i = 0;
+
         i <= 4;
+
         i++
+
     ) {
 
         const value =
@@ -2000,22 +1983,29 @@ function drawChart() {
             "rgba(80,80,100,0.10)";
 
 
-        ctx.lineWidth = 1;
+        ctx.lineWidth =
+            1;
 
 
         ctx.beginPath();
 
 
         ctx.moveTo(
+
             padding.left,
+
             y
+
         );
 
 
         ctx.lineTo(
+
             width -
             padding.right,
+
             y
+
         );
 
 
@@ -2028,7 +2018,8 @@ function drawChart() {
                 value
             ),
 
-            padding.left - 8,
+            padding.left -
+            8,
 
             y + 4
 
@@ -2036,16 +2027,19 @@ function drawChart() {
     }
 
 
-    /* -----------------------------------------
-       BARS
-    ----------------------------------------- */
+    /* BARS */
 
     items.forEach(
-        (item, index) => {
+
+        (
+            item,
+            index
+        ) => {
 
             const x =
                 padding.left +
-                index * step +
+                index *
+                step +
                 (
                     step -
                     barW
@@ -2054,7 +2048,11 @@ function drawChart() {
 
             const barH =
                 (
-                    item.saved /
+                    (
+                        Number(
+                            item.saved
+                        ) || 0
+                    ) /
                     maxValue
                 ) *
                 chartH;
@@ -2079,14 +2077,18 @@ function drawChart() {
 
 
             gradient.addColorStop(
+
                 0,
                 "#7c3aed"
+
             );
 
 
             gradient.addColorStop(
+
                 1,
                 "#2563eb"
+
             );
 
 
@@ -2099,7 +2101,6 @@ function drawChart() {
                 ctx,
 
                 x,
-
                 y,
 
                 barW,
@@ -2130,10 +2131,14 @@ function drawChart() {
 
 
             if (
+
                 items.length <= 15 ||
+
                 index % 3 === 0 ||
+
                 index ===
                     items.length - 1
+
             ) {
 
                 ctx.fillText(
@@ -2143,7 +2148,8 @@ function drawChart() {
                     x +
                     barW / 2,
 
-                    height - 17
+                    height -
+                    17
 
                 );
             }
@@ -2157,19 +2163,30 @@ function drawChart() {
 ========================================= */
 
 function roundRect(
+
     ctx,
+
     x,
+
     y,
+
     width,
+
     height,
+
     radius
+
 ) {
 
     const r =
         Math.min(
+
             radius,
+
             width / 2,
+
             height / 2
+
         );
 
 
@@ -2177,44 +2194,62 @@ function roundRect(
 
 
     ctx.moveTo(
+
         x + r,
         y
+
     );
 
 
     ctx.arcTo(
+
         x + width,
         y,
+
         x + width,
         y + height,
+
         r
+
     );
 
 
     ctx.arcTo(
+
         x + width,
         y + height,
+
         x,
         y + height,
+
         r
+
     );
 
 
     ctx.arcTo(
+
         x,
         y + height,
+
         x,
         y,
+
         r
+
     );
 
 
     ctx.arcTo(
+
         x,
         y,
+
         x + width,
         y,
+
         r
+
     );
 
 
@@ -2226,7 +2261,9 @@ function roundRect(
    COMPACT MONEY
 ========================================= */
 
-function formatCompact(value) {
+function formatCompact(
+    value
+) {
 
     if (
         value >= 1000000
@@ -2247,14 +2284,18 @@ function formatCompact(value) {
             value /
             1000
         ).toFixed(
+
             value % 1000 === 0
                 ? 0
                 : 1
+
         )}K`;
     }
 
 
-    return `Rs.${Math.round(value)}`;
+    return `Rs.${Math.round(
+        value
+    )}`;
 }
 
 
@@ -2265,15 +2306,21 @@ function formatCompact(value) {
 function updateCompletion() {
 
     const complete =
+
         data.target > 0 &&
-        data.saved >= data.target;
+
+        data.saved >=
+        data.target;
 
 
     $("completionSection")
         .classList
         .toggle(
+
             "hidden",
+
             !complete
+
         );
 
 
@@ -2281,6 +2328,20 @@ function updateCompletion() {
         .textContent =
         formatMoney(
             data.target
+        );
+
+
+    $("completionTarget")
+        .textContent =
+        formatMoney(
+            data.target
+        );
+
+
+    $("completionSaved")
+        .textContent =
+        formatMoney(
+            data.saved
         );
 }
 
@@ -2291,15 +2352,23 @@ function updateCompletion() {
 
 function render() {
 
-    if (!data.target) {
+    if (
+        !data.target
+    ) {
 
-        setupSection.classList.remove(
-            "hidden"
-        );
+        setupSection
+            .classList
+            .remove(
+                "hidden"
+            );
 
-        challengeSection.classList.add(
-            "hidden"
-        );
+
+        challengeSection
+            .classList
+            .add(
+                "hidden"
+            );
+
 
         updatePreview();
 
@@ -2307,18 +2376,22 @@ function render() {
     }
 
 
-    setupSection.classList.add(
-        "hidden"
-    );
+    setupSection
+        .classList
+        .add(
+            "hidden"
+        );
 
 
-    challengeSection.classList.remove(
-        "hidden"
-    );
+    challengeSection
+        .classList
+        .remove(
+            "hidden"
+        );
 
 
     /*
-       Make sure current day exists.
+       Make sure today's record exists.
     */
 
     ensureCurrentDay();
@@ -2326,42 +2399,33 @@ function render() {
 
     updateStats();
 
+
     renderTable();
 
+
     updateCompletion();
+
 
     drawChart();
 }
 
 
 /* =========================================
-   RESET CHALLENGE
+   RESET
 ========================================= */
 
 function resetChallenge() {
-
-    if (!data.target) {
-
-        setupSection.classList.remove(
-            "hidden"
-        );
-
-        return;
-    }
-
-
-    /*
-       Confirmation.
-    */
 
     const confirmed =
         window.confirm(
 
             "🔄 Reset Saving Challenge?\n\n" +
 
-            "Your target, daily amount, " +
-            "carry-forward amount, and all " +
-            "saved progress will be deleted.\n\n" +
+            "All target, daily amount, saved money, " +
+
+            "carry-forward data and saving history " +
+
+            "will be deleted.\n\n" +
 
             "Press OK to start a new challenge."
 
@@ -2374,22 +2438,19 @@ function resetChallenge() {
     }
 
 
-    /* -----------------------------------------
-       DELETE DATA
-    ----------------------------------------- */
-
     localStorage.removeItem(
         STORAGE_KEY
+    );
+
+
+    localStorage.removeItem(
+        "customSavingChallenge_v2"
     );
 
 
     data =
         createDefaultData();
 
-
-    /* -----------------------------------------
-       RESET INPUTS
-    ----------------------------------------- */
 
     targetInput.value =
         MIN_TARGET;
@@ -2399,18 +2460,18 @@ function resetChallenge() {
         "";
 
 
-    /* -----------------------------------------
-       SHOW SETUP
-    ----------------------------------------- */
-
-    setupSection.classList.remove(
-        "hidden"
-    );
+    setupSection
+        .classList
+        .remove(
+            "hidden"
+        );
 
 
-    challengeSection.classList.add(
-        "hidden"
-    );
+    challengeSection
+        .classList
+        .add(
+            "hidden"
+        );
 
 
     setupMessage.textContent =
@@ -2426,36 +2487,51 @@ function resetChallenge() {
 
 
 /* =========================================
-   EVENT LISTENERS
+   EVENTS
 ========================================= */
 
 targetInput.addEventListener(
+
     "change",
+
     updatePreview
+
 );
 
 
 dailyAmountInput.addEventListener(
+
     "input",
+
     updatePreview
+
 );
 
 
 startBtn.addEventListener(
+
     "click",
+
     createChallenge
+
 );
 
 
 addSavingBtn.addEventListener(
+
     "click",
+
     addTodaySaving
+
 );
 
 
 resetBtn.addEventListener(
+
     "click",
+
     resetChallenge
+
 );
 
 
@@ -2464,14 +2540,20 @@ resetBtn.addEventListener(
 ========================================= */
 
 window.addEventListener(
+
     "resize",
+
     () => {
 
-        if (data.target) {
+        if (
+            data.target
+        ) {
 
             drawChart();
         }
+
     }
+
 );
 
 
